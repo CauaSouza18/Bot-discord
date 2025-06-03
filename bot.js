@@ -114,7 +114,7 @@ client.on('interactionCreate', async (interaction) => {
                 new ButtonBuilder().setCustomId('entrada').setLabel('Bater Entrada').setStyle(ButtonStyle.Success),
                 new ButtonBuilder().setCustomId('saida').setLabel('Bater Saída').setStyle(ButtonStyle.Danger)
             );
-            return interaction.reply({ content: 'Clique nos botões para bater ponto:', components: [row], ephemeral: true });
+            return interaction.reply({ content: 'Clique nos botões para bater ponto:', components: [row] });
         }
 
         if (interaction.commandName === 'ranking') {
