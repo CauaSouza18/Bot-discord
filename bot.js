@@ -63,7 +63,7 @@ client.on('interactionCreate', async (interaction) => {
 
         if (interaction.commandName === 'relatorio_geral') {
             if (interaction.user.id !== interaction.guild.ownerId) {
-                return interaction.reply({ content: 'Apenas o dono do servidor pode usar este comando.', ephemeral: true });
+                return interaction.reply({ content: 'Apenas o dono do servidor pode usar este comando.', flags:  64 });
             }
 
             const agora = new Date();
@@ -102,11 +102,11 @@ client.on('interactionCreate', async (interaction) => {
                 .setColor(0x2ecc71)
                 .setDescription(relatorio || 'Nenhum dado disponível.');
 
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags:  64 });
         }
 
         if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
-            return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
+            return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', flags:  64 });
         }
 
         if (interaction.commandName === 'painel') {
@@ -139,7 +139,7 @@ client.on('interactionCreate', async (interaction) => {
         const membro = interaction.guild.members.cache.get(userId);
 
         if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
-            return interaction.reply({ content: '❌ Você não tem permissão para bater ponto.', ephemeral: true });
+            return interaction.reply({ content: '❌ Você não tem permissão para bater ponto.', flags:  64 });
         }
 
         // Garantia que o objeto do usuário existe
@@ -147,16 +147,16 @@ client.on('interactionCreate', async (interaction) => {
 
         if (interaction.customId === 'entrada') {
             if (pontos[userId].entrada) {
-                return interaction.reply({ content: 'Você já bateu entrada!', ephemeral: true });
+                return interaction.reply({ content: 'Você já bateu entrada!', flags:  64 });
             }
             pontos[userId].entrada = new Date().toISOString();
             salvarDados();
-            return interaction.reply({ content: `Entrada registrada às ${new Date(pontos[userId].entrada).toLocaleTimeString()}`, ephemeral: true });
+            return interaction.reply({ content: `Entrada registrada às ${new Date(pontos[userId].entrada).toLocaleTimeString()}`, flags:  64 });
         }
 
         if (interaction.customId === 'saida') {
             if (!pontos[userId].entrada) {
-                return interaction.reply({ content: 'Você precisa bater entrada antes!', ephemeral: true });
+                return interaction.reply({ content: 'Você precisa bater entrada antes!', flags:  64 });
             }
             const agora = new Date();
             const entradaDate = new Date(pontos[userId].entrada);
@@ -172,7 +172,7 @@ client.on('interactionCreate', async (interaction) => {
 
             const horas = Math.floor(tempo / 3600000);
             const minutos = Math.floor((tempo % 3600000) / 60000);
-            return interaction.reply({ content: `Saída registrada! Você trabalhou ${horas}h ${minutos}m.`, ephemeral: true });
+            return interaction.reply({ content: `Saída registrada! Você trabalhou ${horas}h ${minutos}m.`, flags:  64 });
         }
     }
 });
