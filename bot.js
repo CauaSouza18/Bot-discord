@@ -173,7 +173,10 @@ client.on('interactionCreate', async (interaction) => {
 
             const horas = Math.floor(tempo / 3600000);
             const minutos = Math.floor((tempo % 3600000) / 60000);
-            if (canal) canal.send(`📤 <@${userId}> bateu ponto de saída às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+          if (canal) {
+  canal.send(`📤 <@${userId}> bateu ponto de saída às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`);
+}
+
 . Trabalhou ${horas}h ${minutos}m.`);
             return interaction.reply({ content: `Saída registrada! Você trabalhou ${horas}h ${minutos}m.`, flags: 64 });
         }
