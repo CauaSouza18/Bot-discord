@@ -21,6 +21,7 @@ const client = new Client({
 
 // IDs dos cargos permitidos para bater ponto
 const CARGOS_PERMITIDOS = ['1372769455406579730'];
+const CANAL_NOTIFICACOES_ID = '1372769457201610783';
 
 // Comandos de barra
 const commands = [
@@ -51,19 +52,17 @@ function salvarDados() {
 const timersMutados = {};
 const CATEGORIA_MONITORADA = '1372769457621172314';
 
-// Evento de pronto
 client.on('ready', () => {
     console.log(`🤖 Bot ${client.user.tag} está online!`);
 });
 
-// Manipulador de interações
 client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
         const membro = interaction.member;
 
         if (interaction.commandName === 'relatorio_geral') {
             if (interaction.user.id !== interaction.guild.ownerId) {
-                return interaction.reply({ content: 'Apenas o dono do servidor pode usar este comando.', flags:  64 });
+                return interaction.reply({ content: 'Apenas o dono do servidor pode usar este comando.', flags: 64 });
             }
 
             const agora = new Date();
@@ -102,11 +101,11 @@ client.on('interactionCreate', async (interaction) => {
                 .setColor(0x2ecc71)
                 .setDescription(relatorio || 'Nenhum dado disponível.');
 
-            return interaction.reply({ embeds: [embed], flags:  64 });
+            return interaction.reply({ embeds: [embed], flags: 64 });
         }
 
         if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
-            return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', flags:  64 });
+            return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', flags: 64 });
         }
 
         if (interaction.commandName === 'painel') {
@@ -137,47 +136,45 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isButton()) {
         const userId = interaction.user.id;
         const membro = interaction.guild.members.cache.get(userId);
+        const canal = interaction.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
         if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
-            return interaction.reply({ content: '❌ Você não tem permissão para bater ponto.', flags:  64 });
+            return interaction.reply({ content: '❌ Você não tem permissão para bater ponto.', flags: 64 });
         }
 
-        // Garantia que o objeto do usuário existe
         if (!pontos[userId]) pontos[userId] = { entrada: null, acumuladoMs: 0, registros: [] };
 
         if (interaction.customId === 'entrada') {
             if (pontos[userId].entrada) {
-                return interaction.reply({ content: 'Você já bateu entrada!', flags:  64 });
+                return interaction.reply({ content: 'Você já bateu entrada!', flags: 64 });
             }
             pontos[userId].entrada = new Date().toISOString();
             salvarDados();
-            return interaction.reply({ content: `Entrada registrada às ${new Date(pontos[userId].entrada).toLocaleTimeString()}`, flags:  64 });
+            if (canal) canal.send(`📥 <@${userId}> bateu ponto de entrada às ${new Date(pontos[userId].entrada).toLocaleTimeString()}`);
+            return interaction.reply({ content: `Entrada registrada às ${new Date(pontos[userId].entrada).toLocaleTimeString()}`, flags: 64 });
         }
 
         if (interaction.customId === 'saida') {
             if (!pontos[userId].entrada) {
-                return interaction.reply({ content: 'Você precisa bater entrada antes!', flags:  64 });
+                return interaction.reply({ content: 'Você precisa bater entrada antes!', flags: 64 });
             }
             const agora = new Date();
             const entradaDate = new Date(pontos[userId].entrada);
             const tempo = agora - entradaDate;
             pontos[userId].acumuladoMs += tempo;
-
-            // **Garantir que registros está definido**
             if (!pontos[userId].registros) pontos[userId].registros = [];
-
             pontos[userId].registros.push({ entrada: pontos[userId].entrada, saida: agora.toISOString() });
             pontos[userId].entrada = null;
             salvarDados();
 
             const horas = Math.floor(tempo / 3600000);
             const minutos = Math.floor((tempo % 3600000) / 60000);
-            return interaction.reply({ content: `Saída registrada! Você trabalhou ${horas}h ${minutos}m.`, flags:  64 });
+            if (canal) canal.send(`📤 <@${userId}> bateu ponto de saída às ${agora.toLocaleTimeString()}. Trabalhou ${horas}h ${minutos}m.`);
+            return interaction.reply({ content: `Saída registrada! Você trabalhou ${horas}h ${minutos}m.`, flags: 64 });
         }
     }
 });
 
-// Função de saída automática
 async function baterSaidaAutomatica(userId) {
     if (!pontos[userId] || !pontos[userId].entrada) return;
 
@@ -192,14 +189,16 @@ async function baterSaidaAutomatica(userId) {
     salvarDados();
 
     const user = await client.users.fetch(userId).catch(() => null);
-    if (user) {
+    const guild = client.guilds.cache.first();
+    const canal = guild?.channels.cache.get(CANAL_NOTIFICACOES_ID);
+
+    if (user && canal) {
         const horas = Math.floor(tempo / 3600000);
         const minutos = Math.floor((tempo % 3600000) / 60000);
-        console.log(`Saída automática para ${user.tag}: ${horas}h ${minutos}m`);
+        canal.send(`⏱️ ${user} foi desconectado por inatividade. Saída automática registrada: ${horas}h ${minutos}m.`);
     }
 }
 
-// Monitoramento de presença na call e mute
 client.on('voiceStateUpdate', async (oldState, newState) => {
     const oldChannel = oldState.channel;
     const newChannel = newState.channel;
@@ -222,25 +221,21 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     }
 });
 
-// Timer para detectar inatividade
 function checkMuteTimer(state) {
     const userId = state.id;
     if (!state.selfMute && !state.selfDeaf) {
         if (timersMutados[userId]) {
             clearTimeout(timersMutados[userId]);
             delete timersMutados[userId];
-            // console.log(`Usuário ${userId} voltou a falar. Timer cancelado.`);
         }
     } else {
         if (!timersMutados[userId]) {
             timersMutados[userId] = setTimeout(() => {
                 baterSaidaAutomatica(userId);
                 delete timersMutados[userId];
-            }, 5 * 60 * 1000); // 5 minutos
-            // console.log(`Usuário ${userId} ficou mutado/inativo. Timer iniciado.`);
+            }, 5 * 60 * 1000);
         }
     }
 }
 
-// Login no Discord
 client.login(process.env.TOKEN);
