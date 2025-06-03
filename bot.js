@@ -20,7 +20,7 @@ const client = new Client({
 });
 
 // IDs dos cargos permitidos para bater ponto
-const CARGOS_PERMITIDOS = ['1372769455406579730', '1316828142513688636'];
+const CARGOS_PERMITIDOS = ['1372769455406579730'];
 
 // Comandos de barra
 const commands = [
