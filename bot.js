@@ -14,6 +14,7 @@ const {
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+const db = require('./db');
 
 // Cliente do Discord
 const client = new Client({
