@@ -4,9 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="563d17f8-2689-4dfe-835c-ab971daf32a1" name="Changes" comment="">
+    <list default="true" id="563d17f8-2689-4dfe-835c-ab971daf32a1" name="Changes" comment="resolve json">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -70,11 +69,25 @@
       <workItem from="1748924650168" duration="1489000" />
       <workItem from="1748958041939" duration="4623000" />
       <workItem from="1748963130818" duration="595000" />
-      <workItem from="1749059510454" duration="2021000" />
+      <workItem from="1749059510454" duration="2197000" />
     </task>
+    <task id="LOCAL-00001" summary="resolve json">
+      <option name="closed" value="true" />
+      <created>1749061601261</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1749061601261</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="instala dependência pg" />
+    <MESSAGE value="resolve json" />
+    <option name="LAST_COMMIT_MESSAGE" value="resolve json" />
   </component>
 </project>
