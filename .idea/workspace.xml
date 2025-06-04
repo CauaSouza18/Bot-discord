@@ -4,7 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="563d17f8-2689-4dfe-835c-ab971daf32a1" name="Changes" comment="" />
+    <list default="true" id="563d17f8-2689-4dfe-835c-ab971daf32a1" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/db.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/bot.js" beforeDir="false" afterPath="$PROJECT_DIR$/bot.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/.package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/node_modules/.package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pontos.json" beforeDir="false" afterPath="$PROJECT_DIR$/pontos.json" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -35,7 +43,8 @@
     "Node.js.bot.js.executor": "Run",
     "Node.js.test-token.js.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "master",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "Merging main",
     "ignore.virus.scanning.warn.message": "true",
     "javascript.nodejs.core.library.configured.version": "22.16.0",
     "javascript.nodejs.core.library.typings.version": "22.15.29",
@@ -64,7 +73,9 @@
       <updated>1748911399643</updated>
       <workItem from="1748911401112" duration="9046000" />
       <workItem from="1748924650168" duration="1489000" />
-      <workItem from="1748958041939" duration="3992000" />
+      <workItem from="1748958041939" duration="4623000" />
+      <workItem from="1748963130818" duration="595000" />
+      <workItem from="1749059510454" duration="1238000" />
     </task>
     <servers />
   </component>
