@@ -1,5 +1,3 @@
-
-// Bot de Ponto com Painel e Monitoramento de Voz (Versão Final)
 const {
   Client,
   GatewayIntentBits,
@@ -60,27 +58,28 @@ client.on('ready', () => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-  if (interaction.isChatInputCommand()) {
-    const membro = interaction.member;
+  const userId = interaction.user.id;
+  const membro = interaction.guild.members.cache.get(userId);
+  const canal = interaction.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
+  if (interaction.isChatInputCommand()) {
     if (interaction.commandName === 'relatorio_geral') {
       if (interaction.user.id !== interaction.guild.ownerId) {
         return interaction.reply({ content: 'Apenas o dono do servidor pode usar este comando.', ephemeral: true });
       }
 
       const agora = new Date();
-      const hoje = agora.toISOString().slice(0, 10); // yyyy-mm-dd
+      const hoje = agora.toISOString().slice(0, 10);
       const inicioSemana = new Date(agora);
       inicioSemana.setDate(agora.getDate() - agora.getDay());
       const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
 
       let relatorio = '';
-
-      for (const userId in pontos) {
-        const user = await client.users.fetch(userId).catch(() => null);
+      for (const uid in pontos) {
+        const user = await client.users.fetch(uid).catch(() => null);
         if (!user) continue;
 
-        const registros = pontos[userId].registros || [];
+        const registros = pontos[uid].registros || [];
         let hojeMs = 0, semanaMs = 0, mesMs = 0;
 
         for (const r of registros) {
@@ -95,8 +94,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         const formatar = ms => `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
-
-        relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(pontos[userId].acumuladoMs || 0)}\n\n`;
+        relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(pontos[uid].acumuladoMs || 0)}\n\n`;
       }
 
       const embed = new EmbedBuilder()
@@ -112,13 +110,19 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.commandName === 'painel') {
-    const row = new ActionRowBuilder().addComponents(
-  new ButtonBuilder().setCustomId('entrada').setLabel('Abrir ').setStyle(ButtonStyle.Success),
-  new ButtonBuilder().setCustomId('saida').setLabel('Fechar').setStyle(ButtonStyle.Danger),
-  new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
-);
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('entrada').setLabel('Abrir').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('saida').setLabel('Fechar').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
+      );
 
-      return interaction.reply({ content: 'Clique nos botões para bater ponto:', components: [row], ephemeral: true });
+      return interaction.reply({ content: '🔹 ᴘᴀʀᴀ ᴀʙʀɪʀ ᴜᴍ ᴘᴏɴᴛᴏ ᴠᴏᴄᴇ̂ ᴘʀᴇᴄɪꜱᴀ ᴇꜱᴛᴀʀ ᴇᴍ ᴜᴍᴀ ᴄᴀʟʟ ᴅᴀ ᴄᴀᴛᴇɢᴏʀɪᴀ #"🔸・ᴘᴀᴛʀᴜʟʜᴀᴍᴇɴᴛᴏ" ᴇ ᴄʟɪᴄᴀʀ ᴇᴍ 𝗔𝗕𝗥𝗜𝗥.
+
+⚠️ ᴄᴀꜱᴏ ᴀᴄᴏɴᴛᴇᴄ̧ᴀ ᴜᴍ ɪᴍᴘʀᴇᴠɪꜱᴛᴏ, ᴘᴏᴅᴇ ꜰɪᴄᴀʀ ᴅᴇꜱᴘʀᴇᴏᴄᴜᴘᴀᴅᴏ ǫᴜᴇ ᴏ ɴᴏꜱꜱᴏ ꜱɪꜱᴛᴇᴍᴀ ᴅᴇ ʙᴀᴛᴇ ᴘᴏɴᴛᴏ ɪʀᴀ́ ʟʜᴇ ᴅᴇꜱᴄᴏɴᴇᴄᴛᴀʀ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀᴍᴇɴᴛᴇ!!
+
+🔹 ᴀᴘᴏ́ꜱ ᴇꜱᴛᴀʀ ᴄᴏᴍ ᴇʟᴇ ᴀʙᴇʀᴛᴏ, ᴇ ǫᴜɪꜱᴇʀ ᴘᴀʀᴀʀ ᴀ ᴘᴀᴛʀᴜʟʜᴀ, ᴄʟɪǫᴜᴇ ᴇᴍ ꜰᴇᴄʜᴀʀ ᴏᴜ ꜱᴀɪᴀ ᴅᴀ ᴄᴀʟʟ, ǫᴜᴇ ᴇᴍ ᴅᴏɪꜱ ᴍɪɴᴜᴛᴏꜱ ᴇʟᴇ ꜰᴇᴄʜᴀʀᴀ́ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀᴍᴇɴᴛᴇ.
+
+🔹 ᴘᴀʀᴀ ᴄᴏɴꜱᴜʟᴛᴀʀ ꜱᴜᴀꜱ ʜᴏʀᴀꜱ, ᴄʟɪǫᴜᴇ ᴇᴍ ʜᴏʀᴀꜱ.:', components: [row], ephemeral: false });
     }
 
     if (interaction.commandName === 'ranking') {
@@ -128,10 +132,10 @@ client.on('interactionCreate', async (interaction) => {
       const embed = new EmbedBuilder().setTitle('🏆 Ranking de Horas Batidas').setColor(0x00AE86);
       let desc = '';
       for (let i = 0; i < Math.min(ranking.length, 10); i++) {
-        const [userId, data] = ranking[i];
+        const [uid, data] = ranking[i];
         const horas = Math.floor(data.acumuladoMs / 3600000);
         const minutos = Math.floor((data.acumuladoMs % 3600000) / 60000);
-        desc += `**${i + 1}** - <@${userId}>: ${horas}h ${minutos}m\n`;
+        desc += `**${i + 1}** - <@${uid}>: ${horas}h ${minutos}m\n`;
       }
       embed.setDescription(desc);
       return interaction.reply({ embeds: [embed], ephemeral: true });
@@ -139,10 +143,6 @@ client.on('interactionCreate', async (interaction) => {
   }
 
   if (interaction.isButton()) {
-    const userId = interaction.user.id;
-    const membro = interaction.guild.members.cache.get(userId);
-    const canal = interaction.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
-
     if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
       return interaction.reply({ content: '❌ Você não tem permissão para bater ponto.', ephemeral: true });
     }
@@ -156,27 +156,13 @@ client.on('interactionCreate', async (interaction) => {
       pontos[userId].entrada = new Date().toISOString();
       salvarDados();
       if (canal) canal.send(`📥 <@${userId}> bateu ponto de entrada às ${new Date(pontos[userId].entrada).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`);
-      return interaction.reply({ content: `Entrada registrada às ${new Date(pontos[userId].entrada).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, ephemeral: true });
+      return interaction.reply({ content: `Entrada registrada às ${new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, ephemeral: true });
     }
 
     if (interaction.customId === 'saida') {
       if (!pontos[userId].entrada) {
         return interaction.reply({ content: 'Você precisa bater entrada antes!', ephemeral: true });
       }
-      if (interaction.customId === 'comandos') {
-  const embed = new EmbedBuilder()
-    .setTitle('📖 Comandos Disponíveis')
-    .setColor(0x3498db)
-    .setDescription(`
-**/painel** – Envia os botões para bater ponto.
-**/ranking** – Exibe o ranking dos usuários com mais horas.
-**/relatorio_geral** – Mostra o relatório completo de todos os usuários (somente para o dono do servidor).
-⚙️ Use os botões do painel para **registrar entrada e saída**.
-⏰ Saída automática após 5 minutos mutado e surdo na call.
-    `);
-
-  return interaction.reply({ embeds: [embed], ephemeral: true });
-}
 
       const agora = new Date();
       const entradaDate = new Date(pontos[userId].entrada);
@@ -194,6 +180,20 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       return interaction.reply({ content: `Saída registrada! Você trabalhou ${horas}h ${minutos}m.`, ephemeral: true });
+    }
+
+    if (interaction.customId === 'comandos') {
+      const embed = new EmbedBuilder()
+        .setTitle('📖 Comandos Disponíveis')
+        .setColor(0x3498db)
+        .setDescription(`
+**/painel** – Envia os botões para bater ponto.
+**/ranking** – Exibe o ranking dos usuários com mais horas.
+**/relatorio_geral** – Mostra o relatório completo de todos os usuários (somente para o dono do servidor).
+⚙️ Use os botões do painel para **registrar entrada e saída**.
+⏰ Saída automática após 5 minutos mutado e surdo na call.
+        `);
+      return interaction.reply({ embeds: [embed], ephemeral: true });
     }
   }
 });
@@ -220,27 +220,24 @@ async function baterSaidaAutomatica(userId) {
   }
 }
 
-// Monitorar estado dos usuários na voice channel e bater saída automática se mutado e desmutado mais de 5 minutos
+// Monitorar estado dos usuários
 client.on('voiceStateUpdate', (oldState, newState) => {
-  // Somente na categoria monitorada
   if (
     oldState.channel?.parentId === CATEGORIA_MONITORADA ||
     newState.channel?.parentId === CATEGORIA_MONITORADA
   ) {
     const userId = newState.id;
 
-    if (!pontos[userId] || !pontos[userId].entrada) return; // Só faz se o usuário bateu entrada
+    if (!pontos[userId] || !pontos[userId].entrada) return;
 
     if (newState.mute && newState.deaf) {
-      // Usuário está mutado e deaf (mudo e sem áudio)
       if (!timersMutados[userId]) {
         timersMutados[userId] = setTimeout(() => {
           baterSaidaAutomatica(userId);
           delete timersMutados[userId];
-        }, 5 * 60 * 1000); // 5 minutos
+        }, 5 * 60 * 1000);
       }
     } else {
-      // Usuário voltou a ouvir ou falar
       if (timersMutados[userId]) {
         clearTimeout(timersMutados[userId]);
         delete timersMutados[userId];
