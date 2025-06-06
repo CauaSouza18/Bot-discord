@@ -114,6 +114,7 @@ client.on('interactionCreate', async (interaction) => {
     new ButtonBuilder().setCustomId('entrada').setLabel('Abrir').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId('saida').setLabel('Fechar').setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('horas').setLabel('Horas').setStyle(ButtonStyle.Primary),
   );
 
   return interaction.reply({
@@ -172,6 +173,16 @@ if (interaction.commandName === 'ranking') {
       if (!pontos[userId].entrada) {
         return interaction.reply({ content: 'Você precisa bater entrada antes!', ephemeral: true });
       }
+if (interaction.customId === 'horas') {
+  const total = pontos[userId]?.acumuladoMs || 0;
+  const horas = Math.floor(total / 3600000);
+  const minutos = Math.floor((total % 3600000) / 60000);
+
+  return interaction.reply({
+    content: `⏱️ Você acumulou **${horas}h ${minutos}m** em pontos registrados.`,
+    ephemeral: true
+  });
+}
 
       const agora = new Date();
       const entradaDate = new Date(pontos[userId].entrada);
