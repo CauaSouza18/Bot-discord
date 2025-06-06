@@ -140,4 +140,108 @@ client.on('interactionCreate', async (interaction) => {
 
       const embed = new EmbedBuilder().setTitle('🏆 Ranking de Horas Batidas').setColor(0x00AE86);
       let desc = '';
-      for (let i = 0; i < Math.min(ranking.length, 1
+      for (let i = 0; i < Math.min(ranking.length, 10); i++) {
+        const [uid, data] = ranking[i];
+        const horas = Math.floor(data.acumuladoMs / 3600000);
+        const minutos = Math.floor((data.acumuladoMs % 3600000) / 60000);
+        desc += `**${i + 1}** - <@${uid}>: ${horas}h ${minutos}m\n`;
+      }
+      embed.setDescription(desc);
+      return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+  }
+
+  if (interaction.isButton()) {
+    if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
+      return interaction.reply({ content: '❌ Você não tem permissão para bater ponto.', ephemeral: true });
+    }
+
+    if (!pontos[userId]) pontos[userId] = { entrada: null, acumuladoMs: 0, registros: [] };
+
+    if (interaction.customId === 'entrada') {
+      if (pontos[userId].entrada) {
+        return interaction.reply({ content: 'Você já bateu entrada!', ephemeral: true });
+      }
+      pontos[userId].entrada = new Date().toISOString();
+      salvarDados();
+      if (canal) canal.send(`📥 <@${userId}> bateu ponto de entrada às ${new Date(pontos[userId].entrada).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`);
+      return interaction.reply({ content: `Entrada registrada às ${new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, ephemeral: true });
+    }
+
+    if (interaction.customId === 'saida') {
+      if (!pontos[userId].entrada) {
+        return interaction.reply({ content: 'Você precisa bater entrada antes!', ephemeral: true });
+      }
+
+      const agora = new Date();
+      const entradaDate = new Date(pontos[userId].entrada);
+      const tempo = agora - entradaDate;
+      pontos[userId].acumuladoMs += tempo;
+      pontos[userId].registros.push({ entrada: pontos[userId].entrada, saida: agora.toISOString() });
+      pontos[userId].entrada = null;
+      salvarDados();
+
+      const horas = Math.floor(tempo / 3600000);
+      const minutos = Math.floor((tempo % 3600000) / 60000);
+
+      if (canal) {
+        canal.send(`📤 <@${userId}> bateu ponto de saída às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Trabalhou ${horas}h ${minutos}m.`);
+      }
+
+      return interaction.reply({ content: `Saída registrada! Você trabalhou ${horas}h ${minutos}m.`, ephemeral: true });
+    }
+
+    if (interaction.customId === 'horas') {
+      const total = pontos[userId]?.acumuladoMs || 0;
+      const horas = Math.floor(total / 3600000);
+      const minutos = Math.floor((total % 3600000) / 60000);
+      return interaction.reply({ content: `Você acumulou ${horas}h ${minutos}m até agora.`, ephemeral: true });
+    }
+
+    if (interaction.customId === 'comandos') {
+      return interaction.reply({
+        content: `🔹 **COMANDOS DISPONÍVEIS**
+
+/painel - Abre o painel de bate-ponto
+/ranking - Mostra o ranking de horas
+/relatorio_geral - Relatório completo (somente dono do servidor)`,
+        ephemeral: true
+      });
+    }
+  }
+});
+
+// Monitorar usuários mutados na categoria monitorada
+client.on('voiceStateUpdate', (oldState, newState) => {
+  // Saiu da call ou mudou para outra categoria
+  if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
+    if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
+      clearTimeout(timersMutados[oldState.id]);
+      delete timersMutados[oldState.id];
+    }
+  }
+
+  // Entrou na categoria monitorada
+  if (newState.channel?.parentId === CATEGORIA_MONITORADA) {
+    if (newState.mute && newState.deaf) {
+      if (!timersMutados[newState.id]) {
+        timersMutados[newState.id] = setTimeout(() => {
+          if (newState.channel?.parentId === CATEGORIA_MONITORADA && newState.mute && newState.deaf) {
+            newState.disconnect();
+            const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
+            if (canal) {
+              canal.send(`❌ <@${newState.id}> foi desconectado por ficar 2 minutos mutado e sem ouvir na categoria de patrulhamento.`);
+            }
+          }
+          delete timersMutados[newState.id];
+        }, 2 * 60 * 1000);
+      }
+    } else {
+      clearTimeout(timersMutados[newState.id]);
+      delete timersMutados[newState.id];
+    }
+  }
+});
+
+client.login(process.env.TOKEN);
+
