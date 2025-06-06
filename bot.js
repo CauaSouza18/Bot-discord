@@ -170,10 +170,29 @@ if (interaction.commandName === 'ranking') {
       return interaction.reply({ content: `Entrada registrada às ${new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, ephemeral: true });
     }
 
-    if (interaction.customId === 'saida') {
-      if (!pontos[userId].entrada) {
-        return interaction.reply({ content: 'Você precisa bater entrada antes!', ephemeral: true });
-      }
+   if (interaction.customId === 'saida') {
+  if (!pontos[userId].entrada) {
+    return interaction.reply({ content: 'Você precisa bater entrada antes!', ephemeral: true });
+  }
+
+  const agora = new Date();
+  const entradaDate = new Date(pontos[userId].entrada);
+  const tempo = agora - entradaDate;
+  pontos[userId].acumuladoMs += tempo;
+  pontos[userId].registros.push({ entrada: pontos[userId].entrada, saida: agora.toISOString() });
+  pontos[userId].entrada = null;
+  salvarDados();
+
+  const horas = Math.floor(tempo / 3600000);
+  const minutos = Math.floor((tempo % 3600000) / 60000);
+
+  if (canal) {
+    canal.send(`📤 <@${userId}> bateu ponto de saída às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Trabalhou ${horas}h ${minutos}m.`);
+  }
+
+  return interaction.reply({ content: `Saída registrada! Você trabalhou ${horas}h ${minutos}m.`, ephemeral: true });
+}
+
 if (interaction.customId === 'horas') {
   const total = pontos[userId]?.acumuladoMs || 0;
   const horas = Math.floor(total / 3600000);
@@ -183,6 +202,8 @@ if (interaction.customId === 'horas') {
     content: `⏱️ Você acumulou **${horas}h ${minutos}m** em pontos registrados.`,
     ephemeral: true
   });
+}
+
 }
 
       const agora = new Date();
