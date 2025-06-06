@@ -112,11 +112,12 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.commandName === 'painel') {
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('entrada').setLabel('Abrir ').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('saida').setLabel('Fechar').setStyle(ButtonStyle.Danger)
-         new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
-      );
+    const row = new ActionRowBuilder().addComponents(
+  new ButtonBuilder().setCustomId('entrada').setLabel('Abrir ').setStyle(ButtonStyle.Success),
+  new ButtonBuilder().setCustomId('saida').setLabel('Fechar').setStyle(ButtonStyle.Danger),
+  new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
+);
+
       return interaction.reply({ content: 'Clique nos botões para bater ponto:', components: [row], ephemeral: true });
     }
 
