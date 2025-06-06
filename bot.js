@@ -263,29 +263,38 @@ async function baterSaidaAutomatica(userId) {
 }
 
 // Monitorar estado dos usuários
+// Monitorar estado dos usuários
 client.on('voiceStateUpdate', (oldState, newState) => {
-  if (
-    oldState.channel?.parentId === CATEGORIA_MONITORADA ||
-    newState.channel?.parentId === CATEGORIA_MONITORADA
-  ) {
-    const userId = newState.id;
+  const userId = newState.id;
 
-    if (!pontos[userId] || !pontos[userId].entrada) return;
-
-    if (newState.mute && newState.deaf) {
-      if (!timersMutados[userId]) {
-        timersMutados[userId] = setTimeout(() => {
-          baterSaidaAutomatica(userId);
-          delete timersMutados[userId];
-        }, 5 * 60 * 1000);
-      }
-    } else {
-      if (timersMutados[userId]) {
-        clearTimeout(timersMutados[userId]);
-        delete timersMutados[userId];
-      }
+  // Se o usuário saiu da call
+  if (!newState.channel) {
+    if (pontos[userId]?.entrada) {
+      setTimeout(() => baterSaidaAutomatica(userId), 2 * 60 * 1000); // 2 minutos após sair da call
     }
+    clearTimeout(timersMutados[userId]);
+    delete timersMutados[userId];
+    return;
+  }
+
+  // Checar se a call está na categoria monitorada
+  if (newState.channel?.parentId !== CATEGORIA_MONITORADA) return;
+
+  const estaMutado = newState.selfMute || newState.mute;
+  const estaSurdo = newState.selfDeaf || newState.deaf;
+
+  if (estaMutado && estaSurdo) {
+    if (!timersMutados[userId]) {
+      timersMutados[userId] = setTimeout(() => {
+        baterSaidaAutomatica(userId);
+        delete timersMutados[userId];
+      }, 5 * 60 * 1000); // 5 minutos
+    }
+  } else {
+    clearTimeout(timersMutados[userId]);
+    delete timersMutados[userId];
   }
 });
+
 
 client.login(process.env.TOKEN);
