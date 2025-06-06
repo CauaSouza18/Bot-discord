@@ -170,7 +170,7 @@ if (interaction.commandName === 'ranking') {
       return interaction.reply({ content: `Entrada registrada às ${new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, ephemeral: true });
     }
 
-   if (interaction.customId === 'saida') {
+ if (interaction.customId === 'saida') {
   if (!pontos[userId].entrada) {
     return interaction.reply({ content: 'Você precisa bater entrada antes!', ephemeral: true });
   }
@@ -192,6 +192,7 @@ if (interaction.commandName === 'ranking') {
 
   return interaction.reply({ content: `Saída registrada! Você trabalhou ${horas}h ${minutos}m.`, ephemeral: true });
 }
+
 
 if (interaction.customId === 'horas') {
   const total = pontos[userId]?.acumuladoMs || 0;
