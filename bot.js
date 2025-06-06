@@ -109,41 +109,46 @@ client.on('interactionCreate', async (interaction) => {
       return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
     }
 
-    if (interaction.commandName === 'painel') {
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('entrada').setLabel('Abrir').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('saida').setLabel('Fechar').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
-      );
+ if (interaction.commandName === 'painel') {
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('entrada').setLabel('Abrir').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('saida').setLabel('Fechar').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
+  );
 
-   return interaction.reply({
-  content: `🔹 **Para abrir um ponto você precisa estar em uma call da categoria \`🔸・ᴘᴀᴛʀᴜʟʜᴀᴍᴇɴᴛᴏ\` e clicar em ABRIR.**
+  return interaction.reply({
+    content: `🔹 **Para abrir um ponto você precisa estar em uma call da categoria \`🔸・ᴘᴀᴛʀᴜʟʜᴀᴍᴇɴᴛᴏ\` e clicar em ABRIR.**
 
 ⚠️ Caso aconteça um imprevisto, pode ficar despreocupado que o nosso sistema de bate-ponto irá lhe desconectar automaticamente!
 
 🔹 Após estar com o ponto aberto e quiser parar a patrulha, clique em FECHAR ou saia da call, que em dois minutos ele fechará automaticamente.
 
 🔹 Para consultar suas horas, clique em HORAS.`,
-  components: [row],
-  ephemeral: false
-});
+    components: [row],
+    ephemeral: false
+  });
+}
 
+if (interaction.commandName === 'ranking') {
+  const ranking = Object.entries(pontos)
+    .filter(([_, d]) => d.acumuladoMs > 0)
+    .sort((a, b) => b[1].acumuladoMs - a[1].acumuladoMs);
 
-    if (interaction.commandName === 'ranking') {
-      const ranking = Object.entries(pontos).filter(([_, d]) => d.acumuladoMs > 0).sort((a, b) => b[1].acumuladoMs - a[1].acumuladoMs);
-      if (ranking.length === 0) return interaction.reply({ content: 'Ninguém bateu ponto ainda.', ephemeral: true });
+  if (ranking.length === 0)
+    return interaction.reply({ content: 'Ninguém bateu ponto ainda.', ephemeral: true });
 
-      const embed = new EmbedBuilder().setTitle('🏆 Ranking de Horas Batidas').setColor(0x00AE86);
-      let desc = '';
-      for (let i = 0; i < Math.min(ranking.length, 10); i++) {
-        const [uid, data] = ranking[i];
-        const horas = Math.floor(data.acumuladoMs / 3600000);
-        const minutos = Math.floor((data.acumuladoMs % 3600000) / 60000);
-        desc += `**${i + 1}** - <@${uid}>: ${horas}h ${minutos}m\n`;
-      }
-      embed.setDescription(desc);
-      return interaction.reply({ embeds: [embed], ephemeral: true });
-    }
+  const embed = new EmbedBuilder().setTitle('🏆 Ranking de Horas Batidas').setColor(0x00AE86);
+  let desc = '';
+  for (let i = 0; i < Math.min(ranking.length, 10); i++) {
+    const [uid, data] = ranking[i];
+    const horas = Math.floor(data.acumuladoMs / 3600000);
+    const minutos = Math.floor((data.acumuladoMs % 3600000) / 60000);
+    desc += `**${i + 1}** - <@${uid}>: ${horas}h ${minutos}m\n`;
+  }
+  embed.setDescription(desc);
+  return interaction.reply({ embeds: [embed], ephemeral: true });
+}
+
   }
 
   if (interaction.isButton()) {
