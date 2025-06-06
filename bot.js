@@ -110,12 +110,13 @@ client.on('interactionCreate', async (interaction) => {
     }
 
  if (interaction.commandName === 'painel') {
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('entrada').setLabel('Abrir').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('saida').setLabel('Fechar').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
-    new ButtonBuilder().setCustomId('horas').setLabel('Horas').setStyle(ButtonStyle.Primary),
-  );
+const row = new ActionRowBuilder().addComponents(
+  new ButtonBuilder().setCustomId('entrada').setLabel('Abrir').setStyle(ButtonStyle.Success),
+  new ButtonBuilder().setCustomId('saida').setLabel('Fechar').setStyle(ButtonStyle.Danger),
+  new ButtonBuilder().setCustomId('horas').setLabel('Horas').setStyle(ButtonStyle.Primary),
+  new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
+);
+
 
   return interaction.reply({
     content: `🔹 **Para abrir um ponto você precisa estar em uma call da categoria \`🔸・ᴘᴀᴛʀᴜʟʜᴀᴍᴇɴᴛᴏ\` e clicar em ABRIR.**
