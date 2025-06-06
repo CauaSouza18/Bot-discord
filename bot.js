@@ -116,14 +116,18 @@ client.on('interactionCreate', async (interaction) => {
         new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
       );
 
-      return interaction.reply({ content: '🔹 ᴘᴀʀᴀ ᴀʙʀɪʀ ᴜᴍ ᴘᴏɴᴛᴏ ᴠᴏᴄᴇ̂ ᴘʀᴇᴄɪꜱᴀ ᴇꜱᴛᴀʀ ᴇᴍ ᴜᴍᴀ ᴄᴀʟʟ ᴅᴀ ᴄᴀᴛᴇɢᴏʀɪᴀ #"🔸・ᴘᴀᴛʀᴜʟʜᴀᴍᴇɴᴛᴏ" ᴇ ᴄʟɪᴄᴀʀ ᴇᴍ 𝗔𝗕𝗥𝗜𝗥.
+   return interaction.reply({
+  content: `🔹 **Para abrir um ponto você precisa estar em uma call da categoria \`🔸・ᴘᴀᴛʀᴜʟʜᴀᴍᴇɴᴛᴏ\` e clicar em ABRIR.**
 
-⚠️ ᴄᴀꜱᴏ ᴀᴄᴏɴᴛᴇᴄ̧ᴀ ᴜᴍ ɪᴍᴘʀᴇᴠɪꜱᴛᴏ, ᴘᴏᴅᴇ ꜰɪᴄᴀʀ ᴅᴇꜱᴘʀᴇᴏᴄᴜᴘᴀᴅᴏ ǫᴜᴇ ᴏ ɴᴏꜱꜱᴏ ꜱɪꜱᴛᴇᴍᴀ ᴅᴇ ʙᴀᴛᴇ ᴘᴏɴᴛᴏ ɪʀᴀ́ ʟʜᴇ ᴅᴇꜱᴄᴏɴᴇᴄᴛᴀʀ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀᴍᴇɴᴛᴇ!!
+⚠️ Caso aconteça um imprevisto, pode ficar despreocupado que o nosso sistema de bate-ponto irá lhe desconectar automaticamente!
 
-🔹 ᴀᴘᴏ́ꜱ ᴇꜱᴛᴀʀ ᴄᴏᴍ ᴇʟᴇ ᴀʙᴇʀᴛᴏ, ᴇ ǫᴜɪꜱᴇʀ ᴘᴀʀᴀʀ ᴀ ᴘᴀᴛʀᴜʟʜᴀ, ᴄʟɪǫᴜᴇ ᴇᴍ ꜰᴇᴄʜᴀʀ ᴏᴜ ꜱᴀɪᴀ ᴅᴀ ᴄᴀʟʟ, ǫᴜᴇ ᴇᴍ ᴅᴏɪꜱ ᴍɪɴᴜᴛᴏꜱ ᴇʟᴇ ꜰᴇᴄʜᴀʀᴀ́ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀᴍᴇɴᴛᴇ.
+🔹 Após estar com o ponto aberto e quiser parar a patrulha, clique em FECHAR ou saia da call, que em dois minutos ele fechará automaticamente.
 
-🔹 ᴘᴀʀᴀ ᴄᴏɴꜱᴜʟᴛᴀʀ ꜱᴜᴀꜱ ʜᴏʀᴀꜱ, ᴄʟɪǫᴜᴇ ᴇᴍ ʜᴏʀᴀꜱ.:', components: [row], ephemeral: false });
-    }
+🔹 Para consultar suas horas, clique em HORAS.`,
+  components: [row],
+  ephemeral: false
+});
+
 
     if (interaction.commandName === 'ranking') {
       const ranking = Object.entries(pontos).filter(([_, d]) => d.acumuladoMs > 0).sort((a, b) => b[1].acumuladoMs - a[1].acumuladoMs);
