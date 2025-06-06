@@ -113,8 +113,9 @@ client.on('interactionCreate', async (interaction) => {
 
     if (interaction.commandName === 'painel') {
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('entrada').setLabel('Bater Entrada').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('saida').setLabel('Bater Saída').setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('entrada').setLabel('Abrir ').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('saida').setLabel('Fechar').setStyle(ButtonStyle.Danger)
+         new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
       );
       return interaction.reply({ content: 'Clique nos botões para bater ponto:', components: [row], ephemeral: true });
     }
@@ -161,6 +162,21 @@ client.on('interactionCreate', async (interaction) => {
       if (!pontos[userId].entrada) {
         return interaction.reply({ content: 'Você precisa bater entrada antes!', ephemeral: true });
       }
+      if (interaction.customId === 'comandos') {
+  const embed = new EmbedBuilder()
+    .setTitle('📖 Comandos Disponíveis')
+    .setColor(0x3498db)
+    .setDescription(`
+**/painel** – Envia os botões para bater ponto.
+**/ranking** – Exibe o ranking dos usuários com mais horas.
+**/relatorio_geral** – Mostra o relatório completo de todos os usuários (somente para o dono do servidor).
+⚙️ Use os botões do painel para **registrar entrada e saída**.
+⏰ Saída automática após 5 minutos mutado e surdo na call.
+    `);
+
+  return interaction.reply({ embeds: [embed], ephemeral: true });
+}
+
       const agora = new Date();
       const entradaDate = new Date(pontos[userId].entrada);
       const tempo = agora - entradaDate;
