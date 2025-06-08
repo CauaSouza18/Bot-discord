@@ -116,26 +116,34 @@ client.on('interactionCreate', async (interaction) => {
       return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
     }
 
-    if (interaction.commandName === 'painel') {
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('entrada').setLabel('Abrir').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('saida').setLabel('Fechar').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('horas').setLabel('Horas').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
-      );
+   if (interaction.commandName === 'painel') {
+        const embed = new EmbedBuilder()
+            .setTitle(' BATE-PONTO - ROTA ')
+            .setDescription(
+                `⭐ Para abrir um ponto você precisa estar em uma call da categoria \`🔸・ᴘᴀᴛʀᴜʟʜᴀᴍᴇɴᴛᴏ\` e clicar em **ABRIR**.\n\n` +
+                `⚠️ Caso aconteça um imprevisto, pode ficar despreocupado que o nosso sistema de bate-ponto irá lhe desconectar automaticamente!\n\n` +
+                `✅ Após estar com o ponto aberto e quiser parar a patrulha, clique em **FECHAR** ou **saia da call**, que em dois minutos ele fechará automaticamente.\n\n` +
+                `📊 Para consultar suas horas, clique em **HORAS**.`
+            )
 
-      return interaction.reply({
-        content: `🔹 **Para abrir um ponto você precisa estar em uma call da categoria \`🔸・ᴘᴀᴛʀᴜʟʜᴀᴍᴇɴᴛᴏ\` e clicar em ABRIR.**
+            .setColor('#000000')
+            .setThumbnail('https://i.imgur.com/mcJJ0cG.png') // Substitua pelo seu logo real
+            .setFooter({ text: 'Atenciosamente, ROTA ' });
 
-⚠️ Caso aconteça um imprevisto, pode ficar despreocupado que o nosso sistema de bate-ponto irá lhe desconectar automaticamente!
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('entrada').setLabel('ABRIR').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('saida').setLabel('FECHAR').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId('horas').setLabel('HORAS').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('comandos').setEmoji('⚙️').setStyle(ButtonStyle.Secondary)
+        );
 
-🔹 Após estar com o ponto aberto e quiser parar a patrulha, clique em FECHAR ou saia da call, que em dois minutos ele fechará automaticamente.
-
-🔹 Para consultar suas horas, clique em HORAS.`,
-        components: [row],
-        ephemeral: false
-      });
+        await interaction.reply({
+            embeds: [embed],
+            components: [row],
+            ephemeral: false
+        });
     }
+});
 
     if (interaction.commandName === 'ranking') {
       const ranking = Object.entries(pontos)
@@ -166,11 +174,20 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (!pontos[userId]) pontos[userId] = { entrada: null, acumuladoMs: 0, registros: [] };
+if (interaction.customId === 'entrada') {
+  const voiceChannel = membro.voice.channel;
 
-    if (interaction.customId === 'entrada') {
-      if (pontos[userId].entrada) {
-        return interaction.reply({ content: 'Você já bateu entrada!', ephemeral: true });
-      }
+  if (!voiceChannel || voiceChannel.parentId !== CATEGORIA_MONITORADA) {
+    return interaction.reply({
+      content: '❌ Você precisa estar em uma call da categoria permitida para bater ponto!',
+      ephemeral: true
+    });
+  }
+
+  if (pontos[userId].entrada) {
+    return interaction.reply({ content: 'Você já bateu entrada!', ephemeral: true });
+  }
+
       pontos[userId].entrada = new Date().toISOString();
       await salvarDados();
 
