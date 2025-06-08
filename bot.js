@@ -143,7 +143,6 @@ client.on('interactionCreate', async (interaction) => {
             ephemeral: false
         });
     }
-});
 
     if (interaction.commandName === 'ranking') {
       const ranking = Object.entries(pontos)
