@@ -247,18 +247,14 @@ const pool = new Pool({
 });
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
-  const userId = oldState.member?.id || newState.member?.id;
-  if (!userId) return;
-
-  // Saiu da call da categoria monitorada?
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
-      if (timersMutados[userId]) {
-        clearTimeout(timersMutados[userId]);
-        delete timersMutados[userId];
-      }
+      clearTimeout(timersMutados[oldState.member.id]);
+      delete timersMutados[oldState.member.id];
 
+      const userId = oldState.member.id;
       const horarioSaida = new Date();
+
       const jsonData = {
         saida: horarioSaida.toISOString()
       };
@@ -266,7 +262,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       try {
         await pool.query(
           'INSERT INTO ponto (user_id, data) VALUES ($1, $2)',
-          [userId, jsonData] // Ou JSON.stringify(jsonData) se precisar
+          [userId, jsonData]
         );
         console.log(`✅ Saída registrada para ${userId} às ${horarioSaida.toLocaleTimeString('pt-BR')}`);
       } catch (err) {
@@ -274,47 +270,9 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       }
     }
   }
-
-  // Entrou na call da categoria monitorada e está mutado + deaf
-  if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
-    if (newState.mute && newState.deaf) {
-      if (!timersMutados[userId]) {
-        timersMutados[userId] = setTimeout(async () => {
-          const membro = newState.guild.members.cache.get(userId);
-          if (membro?.voice.channel && membro.voice.mute && membro.voice.deaf) {
-            await membro.voice.disconnect().catch(() => {});
-
-            const horarioSaida = new Date();
-            const jsonData = {
-              saida: horarioSaida.toISOString()
-            };
-
-            try {
-              await pool.query(
-                'INSERT INTO ponto (user_id, data) VALUES ($1, $2)',
-                [userId, jsonData]
-              );
-              console.log(`🔴 Saída forçada registrada para ${userId}`);
-            } catch (err) {
-              console.error('❌ Erro ao salvar saída forçada:', err);
-            }
-
-            const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
-            if (canal) {
-              canal.send(`⚠️ <@${userId}> foi desconectado automaticamente por mutar e desativar som por mais de 5 minutos.`);
-            }
-          }
-          delete timersMutados[userId];
-        }, 5 * 60 * 1000);
-      }
-    } else {
-      if (timersMutados[userId]) {
-        clearTimeout(timersMutados[userId]);
-        delete timersMutados[userId];
-      }
-    }
-  }
+  // resto do seu código continua...
 });
+
 
 
 client.login(process.env.TOKEN);
