@@ -241,49 +241,43 @@ if (interaction.customId === 'entrada') {
 });
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
-  // Saiu da call
+  const userId = oldState.id;
+  const membro = await oldState.guild.members.fetch(userId).catch(() => null);
+  const canal = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
+
+  // Se saiu de uma call da categoria monitorada
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
-      console.log(`[DEBUG] Usuário ${oldState.id} saiu da call monitorada.`);
+      console.log(`[DEBUG] Usuário ${userId} saiu da call monitorada.`);
 
-      if (timersMutados[oldState.id]) {
-        clearTimeout(timersMutados[oldState.id]);
-        delete timersMutados[oldState.id];
+      // Limpa temporizadores
+      if (timersMutados[userId]) {
+        clearTimeout(timersMutados[userId]);
+        delete timersMutados[userId];
       }
 
-      try {
-        await fecharPontoDoUsuario(oldState.id, oldState.guild);
-      } catch (err) {
-        console.error(`[ERRO] Falha ao fechar ponto do usuário ${oldState.id}:`, err);
-      }
-    }
-  }
+      // Se estava com ponto aberto
+      if (pontos[userId]?.entrada) {
+        const agora = new Date();
+        const entradaDate = new Date(pontos[userId].entrada);
+        const tempo = agora - entradaDate;
 
-  // Entrou na call
-  if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
-    if (newState.mute && newState.deaf) {
-      if (!timersMutados[newState.id]) {
-        timersMutados[newState.id] = setTimeout(() => {
-          const membro = newState.guild.members.cache.get(newState.id);
-          if (membro?.voice?.channel && membro.voice.mute && membro.voice.deaf) {
-            membro.voice.disconnect().catch(() => {});
-            const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
-            if (canal) {
-              canal.send(`⚠️ <@${newState.id}> foi desconectado por estar mutado e surdo por mais de 5 minutos.`);
-            }
-          }
-          delete timersMutados[newState.id];
-        }, 5 * 60 * 1000);
-      }
-    } else {
-      if (timersMutados[newState.id]) {
-        clearTimeout(timersMutados[newState.id]);
-        delete timersMutados[newState.id];
-        
+        pontos[userId].acumuladoMs += tempo;
+        pontos[userId].registros.push({ entrada: pontos[userId].entrada, saida: agora.toISOString() });
+        pontos[userId].entrada = null;
+        await salvarDados();
+
+        const horas = Math.floor(tempo / 3600000);
+        const minutos = Math.floor((tempo % 3600000) / 60000);
+
+        if (canal) {
+          canal.send(`📤 <@${userId}> foi desconectado da call e teve o ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Trabalhou ${horas}h ${minutos}m.`);
+        }
       }
     }
   }
 });
+
 
 client.login(process.env.TOKEN);
 
