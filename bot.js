@@ -246,66 +246,77 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
 client.on('voiceStateUpdate', async (oldState, newState) => {
-  const userId = newState.id;
-  const agora = new Date();
+  try {
+    // Quando o usuário sai de um canal da categoria monitorada
+    if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
+      if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
+        clearTimeout(timersMutados[oldState.id]);
+        delete timersMutados[oldState.id];
 
-  // Se saiu de uma call
-  if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
-    if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
-      // Limpa timer se sair da categoria
-      clearTimeout(timersMutados[userId]);
-      delete timersMutados[userId];
+        // Fecha ponto automaticamente
+        const userId = oldState.id;
+        const dataHoje = new Date().toISOString().split('T')[0]; // Ex: '2025-06-09'
+        const agora = new Date().toISOString();
 
-      // FECHA O PONTO AUTOMATICAMENTE
-      if (pontos[userId] && pontos[userId].entrada) {
-        const entradaDate = new Date(pontos[userId].entrada);
-        const tempo = agora - entradaDate;
+        const { rows } = await pool.query(
+          'SELECT dados FROM pontos WHERE user_id = $1 AND data = $2',
+          [userId, dataHoje]
+        );
 
-        if (!Array.isArray(pontos[userId].registros)) pontos[userId].registros = [];
+        if (rows.length > 0) {
+          const ponto = rows[0].dados;
 
-        pontos[userId].acumuladoMs += tempo;
-        pontos[userId].registros.push({
-          entrada: pontos[userId].entrada,
-          saida: agora.toISOString(),
-        });
-        pontos[userId].entrada = null;
+          if (ponto && ponto.registros?.length > 0) {
+            const ultimo = ponto.registros[ponto.registros.length - 1];
+            if (!ultimo.saida) {
+              ultimo.saida = agora;
 
-        await salvarDados?.();
+              // Atualiza acumuladoMs
+              const entrada = new Date(ultimo.entrada);
+              const saida = new Date(ultimo.saida);
+              const diff = saida - entrada;
+              ponto.acumuladoMs = (ponto.acumuladoMs || 0) + diff;
+            }
+          }
 
-        const horas = Math.floor(tempo / 3600000);
-        const minutos = Math.floor((tempo % 3600000) / 60000);
+          // Atualiza o campo "saida" geral
+          ponto.saida = agora;
 
-        const canal = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
-        if (canal) {
-          canal.send(`📤 <@${userId}> saiu da call e o ponto foi encerrado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Tempo trabalhado: ${horas}h ${minutos}m.`);
+          await pool.query(
+            'UPDATE pontos SET dados = $1 WHERE user_id = $2 AND data = $3',
+            [ponto, userId, dataHoje]
+          );
         }
       }
     }
-  }
 
-  // Se entrou em uma call da categoria monitorada
-  if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
-    if (newState.mute && newState.deaf) {
-      // Inicia timer de desconexão automática
-      if (!timersMutados[userId]) {
-        timersMutados[userId] = setTimeout(() => {
-          const membro = newState.guild.members.cache.get(userId);
-          if (membro?.voice.channel && membro.voice.mute && membro.voice.deaf) {
-            membro.voice.disconnect().catch(() => {});
-            const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
-            if (canal) {
-              canal.send(`⚠️ <@${userId}> foi desconectado automaticamente por ficar 5 minutos com o microfone e som desligados.`);
+    // Quando entra em call mutado e surdo
+    if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
+      if (newState.mute && newState.deaf) {
+        if (!timersMutados[newState.id]) {
+          timersMutados[newState.id] = setTimeout(async () => {
+            const membro = newState.guild.members.cache.get(newState.id);
+            if (membro.voice.channel && membro.voice.mute && membro.voice.deaf) {
+              membro.voice.disconnect().catch(() => {});
+              const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
+              if (canal) {
+                canal.send(`⚠️ <@${newState.id}> foi desconectado automaticamente por estar mutado e sem som por 5 minutos.`);
+              }
+
+              // Também fecha o ponto aqui, por segurança (opcional duplicado)
             }
-          }
-          delete timersMutados[userId];
-        }, 5 * 60 * 1000);
+            delete timersMutados[newState.id];
+          }, 5 * 60 * 1000);
+        }
+      } else {
+        clearTimeout(timersMutados[newState.id]);
+        delete timersMutados[newState.id];
       }
-    } else {
-      // Se desmutou/desfez surdez, cancela o timer
-      clearTimeout(timersMutados[userId]);
-      delete timersMutados[userId];
     }
+  } catch (err) {
+    console.error("Erro ao tentar fechar ponto automático:", err);
   }
 });
+
 
 client.login(process.env.TOKEN);
