@@ -240,10 +240,8 @@ if (interaction.customId === 'entrada') {
   }
 });
 
-// Monitoramento de usuários mutados na categoria monitorada
-
 client.on('voiceStateUpdate', async (oldState, newState) => {
-  // Usuário saiu de um canal de voz
+  // Saiu da call
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
       console.log(`[DEBUG] Usuário ${oldState.id} saiu da call monitorada.`);
@@ -255,24 +253,23 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 
       try {
         await fecharPontoDoUsuario(oldState.id, oldState.guild);
-        console.log(`[DEBUG] Ponto do usuário ${oldState.id} fechado com sucesso ao sair da call.`);
       } catch (err) {
         console.error(`[ERRO] Falha ao fechar ponto do usuário ${oldState.id}:`, err);
       }
     }
   }
 
-  // Usuário entrou numa call da categoria monitorada
+  // Entrou na call
   if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
     if (newState.mute && newState.deaf) {
       if (!timersMutados[newState.id]) {
         timersMutados[newState.id] = setTimeout(() => {
           const membro = newState.guild.members.cache.get(newState.id);
-          if (membro.voice.channel && membro.voice.mute && membro.voice.deaf) {
+          if (membro?.voice?.channel && membro.voice.mute && membro.voice.deaf) {
             membro.voice.disconnect().catch(() => {});
             const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
             if (canal) {
-              canal.send(`⚠️ <@${newState.id}> foi desconectado automaticamente por estar mutado e surdo por mais de 5 minutos.`);
+              canal.send(`⚠️ <@${newState.id}> foi desconectado por estar mutado e surdo por mais de 5 minutos.`);
             }
           }
           delete timersMutados[newState.id];
@@ -282,11 +279,11 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       if (timersMutados[newState.id]) {
         clearTimeout(timersMutados[newState.id]);
         delete timersMutados[newState.id];
+        
       }
     }
   }
 });
-
 
 client.login(process.env.TOKEN);
 
