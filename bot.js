@@ -259,15 +259,16 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         saida: horarioSaida.toISOString()
       };
 
-      try {
-        await pool.query(
-          'UPDATE  pontos (user_id, data) VALUES ($1, $2)',
-          [userId, jsonData]
-        );
-        console.log(`✅ Saída registrada para ${userId} às ${horarioSaida.toLocaleTimeString('pt-BR')}`);
-      } catch (err) {
-        console.error('❌ Erro ao salvar ponto de saída:', err);
-      }
+    try {
+  await pool.query(
+    'UPDATE pontos SET data = $2 WHERE user_id = $1',
+    [userId, JSON.stringify(jsonData)]
+  );
+  console.log(`✅ Saída registrada para ${userId} às ${horarioSaida.toLocaleTimeString('pt-BR')}`);
+} catch (err) {
+  console.error('❌ Erro ao salvar ponto de saída:', err);
+}
+
     }
   }
   // resto do seu código continua...
