@@ -259,7 +259,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         const agora = new Date().toISOString();
 
         const { rows } = await pool.query(
-          'SELECT dados FROM pontos WHERE user_id = $1 AND data = $2',
+          'SELECT data FROM pontos WHERE user_id = $1 AND data = $2',
           [userId, dataHoje]
         );
 
@@ -283,7 +283,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
           ponto.saida = agora;
 
           await pool.query(
-            'UPDATE pontos SET dados = $1 WHERE user_id = $2 AND data = $3',
+            'UPDATE pontos SET data = $1 WHERE user_id = $2 AND data = $3',
             [ponto, userId, dataHoje]
           );
         }
