@@ -54,5 +54,10 @@ async function fecharPontoDoUsuario(userId, guild) {
 }
 
 module.exports = {
-  fecharPontoDoUsuario,
+  getPontos,
+  salvarPontos,
+  fecharPontoDoUsuario, // Exporta a nova função também
 };
+
+
+
