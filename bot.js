@@ -246,38 +246,120 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
 
-const userId = oldState.id;  // string mesmo, não precisa JSON.stringify
-const dataHoje = new Date().toISOString().split('T')[0]; // '2025-06-09'
+client.on('voiceStateUpdate', async (oldState, newState) => {
+  try {
+    // Quando o usuário sai de um canal da categoria monitorada
+    if (
+      oldState.channelId &&
+      (!newState.channelId || newState.channelId !== oldState.channelId) &&
+      oldState.channel?.parentId === CATEGORIA_MONITORADA
+    ) {
+      clearTimeout(timersMutados[oldState.id]);
+      delete timersMutados[oldState.id];
 
-const { rows } = await pool.query(
-  `SELECT * FROM pontos WHERE user_id = $1 AND data->>'data' = $2`,
-  [userId, dataHoje]
-);
+      const userId = oldState.id;
+      const dataHoje = new Date().toISOString().split('T')[0];
 
-if (rows.length > 0) {
-  const ponto = rows[0].data;
+      const { rows } = await pool.query(
+        `SELECT * FROM pontos WHERE user_id = $1 AND data->>'data' = $2`,
+        [userId, dataHoje]
+      );
 
-  if (ponto && ponto.registros?.length > 0) {
-    const ultimo = ponto.registros[ponto.registros.length - 1];
+      if (rows.length > 0) {
+        const ponto = rows[0].data;
 
-    if (!ultimo.saida) {
-      const agora = new Date().toISOString();
-      ultimo.saida = agora;
+        if (ponto && ponto.registros?.length > 0) {
+          const ultimo = ponto.registros[ponto.registros.length - 1];
 
-      const entrada = new Date(ultimo.entrada);
-      const saida = new Date(ultimo.saida);
-      const diff = saida - entrada;
-      ponto.acumuladoMs = (ponto.acumuladoMs || 0) + diff;
+          if (!ultimo.saida) {
+            const agora = new Date().toISOString();
+            ultimo.saida = agora;
+
+            const entrada = new Date(ultimo.entrada);
+            const saida = new Date(ultimo.saida);
+            const diff = saida - entrada;
+            ponto.acumuladoMs = (ponto.acumuladoMs || 0) + diff;
+          }
+        }
+
+        ponto.saida = new Date().toISOString();
+
+        await pool.query(
+          `UPDATE pontos SET data = $1 WHERE user_id = $2 AND data->>'data' = $3`,
+          [JSON.stringify(ponto), userId, dataHoje]
+        );
+      }
     }
+
+    // Quando entra em call mutado e surdo
+    if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
+      if (newState.mute && newState.deaf) {
+        if (!timersMutados[newState.id]) {
+          timersMutados[newState.id] = setTimeout(async () => {
+            const membro = newState.guild.members.cache.get(newState.id);
+
+            if (membro?.voice.channel && membro.voice.mute && membro.voice.deaf) {
+              // Desconecta o usuário
+              await membro.voice.disconnect().catch(() => {});
+
+              // Fecha ponto automaticamente
+              const userId = newState.id;
+              const dataHoje = new Date().toISOString().split('T')[0];
+
+              try {
+                const { rows } = await pool.query(
+                  `SELECT * FROM pontos WHERE user_id = $1 AND data->>'data' = $2`,
+                  [userId, dataHoje]
+                );
+
+                if (rows.length > 0) {
+                  const ponto = rows[0].data;
+
+                  if (ponto && ponto.registros?.length > 0) {
+                    const ultimo = ponto.registros[ponto.registros.length - 1];
+
+                    if (!ultimo.saida) {
+                      const agora = new Date().toISOString();
+                      ultimo.saida = agora;
+
+                      const entrada = new Date(ultimo.entrada);
+                      const saida = new Date(ultimo.saida);
+                      const diff = saida - entrada;
+                      ponto.acumuladoMs = (ponto.acumuladoMs || 0) + diff;
+                    }
+                  }
+
+                  ponto.saida = new Date().toISOString();
+
+                  await pool.query(
+                    `UPDATE pontos SET data = $1 WHERE user_id = $2 AND data->>'data' = $3`,
+                    [JSON.stringify(ponto), userId, dataHoje]
+                  );
+                }
+              } catch (err) {
+                console.error('Erro ao fechar ponto no timeout:', err);
+              }
+
+              // Notifica no canal
+              const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
+              if (canal) {
+                canal.send(`⚠️ <@${newState.id}> foi desconectado automaticamente por estar mutado e sem som por 5 minutos.`);
+              }
+            }
+
+            delete timersMutados[newState.id];
+          }, 5 * 60 * 1000);
+        }
+      } else {
+        clearTimeout(timersMutados[newState.id]);
+        delete timersMutados[newState.id];
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao tentar fechar ponto automático:', err);
   }
+});
 
-  ponto.saida = new Date().toISOString();
-
-  await pool.query(
-    `UPDATE pontos SET data = $1 WHERE user_id = $2 AND data->>'data' = $3`,
-    [JSON.stringify(ponto), userId, dataHoje]
-  );
-}
 
 
 client.login(process.env.TOKEN);
