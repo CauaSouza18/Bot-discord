@@ -250,7 +250,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   try {
     // Verifica se o usuário saiu da call
     if (oldState.channelId && !newState.channelId) {
-      const userId = oldState.id;
+      const userId = oldState.member.user.id; // <-- CORRETO
       const dataHoje = new Date().toISOString().split('T')[0];
 
       const { rows } = await pool.query(
