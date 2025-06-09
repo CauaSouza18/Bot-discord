@@ -246,8 +246,6 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
 
-const timersMutados = {};
-
 client.on('voiceStateUpdate', async (oldState, newState) => {
   // Detecta quando o usuário sai da call
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
