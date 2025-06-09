@@ -43,7 +43,7 @@ async function salvarPontos(pontos) {
 }
 
 // ✅ NOVA FUNÇÃO: fechar ponto automaticamente ao sair da call monitorada
-const CANAL_NOTIFICACOES_ID = 'ID_DO_CANAL'; // ← Substitua pelo ID real
+const CANAL_NOTIFICACOES_ID = '1372769457201610783'; // ← Substitua pelo ID real
 
 async function fecharPontoDoUsuario(userId, guild) {
   const client = await pool.connect();
