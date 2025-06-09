@@ -248,15 +248,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
       console.log(`[DEBUG] Usuário ${oldState.id} saiu da call monitorada.`);
 
-      // Cancela timer se existir
       if (timersMutados[oldState.id]) {
         clearTimeout(timersMutados[oldState.id]);
         delete timersMutados[oldState.id];
       }
 
-      // Fecha o ponto automaticamente
       try {
-        await fecharPontoDoUsuario(oldState.id);
+        await fecharPontoDoUsuario(oldState.id, oldState.guild);
         console.log(`[DEBUG] Ponto do usuário ${oldState.id} fechado com sucesso ao sair da call.`);
       } catch (err) {
         console.error(`[ERRO] Falha ao fechar ponto do usuário ${oldState.id}:`, err);
@@ -278,7 +276,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             }
           }
           delete timersMutados[newState.id];
-        }, 5 * 60 * 1000); // 5 minutos
+        }, 5 * 60 * 1000);
       }
     } else {
       if (timersMutados[newState.id]) {
