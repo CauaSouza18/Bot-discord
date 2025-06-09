@@ -245,76 +245,87 @@ const { Pool } = require('pg');
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
-// Mapa para controlar timers de fechamento automático
-const timersFechamento = {};
-
 client.on('voiceStateUpdate', async (oldState, newState) => {
   try {
-    const userId = oldState.member.user.id;
-
-    // Usuário saiu da call monitorada
+    // Nova parte: Fecha ponto e notifica ao sair da call na categoria monitorada
     if (oldState.channelId && !newState.channelId) {
-      // Se já existe um timer, não cria outro
-      if (timersFechamento[userId]) return;
+      // Só processa se o canal antigo for da categoria monitorada (se quiser só para esses canais)
+      if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
+        const userId = oldState.id;
+        const dataHoje = new Date().toISOString().split('T')[0];
+        const canalNotificacoes = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
-      // Cria timer para fechar ponto em 2 minutos
-      timersFechamento[userId] = setTimeout(async () => {
-        try {
-          const dataHoje = new Date().toISOString().split('T')[0];
-          const { rows } = await pool.query(
-            `SELECT * FROM pontos WHERE user_id = $1 AND data->>'data' = $2`,
-            [userId, dataHoje]
-          );
+        // Busca ponto no banco
+        const { rows } = await pool.query(
+          `SELECT * FROM pontos WHERE user_id = $1 AND data->>'data' = $2`,
+          [userId, dataHoje]
+        );
 
-          if (rows.length > 0) {
-            const ponto = rows[0].data;
+        if (rows.length > 0) {
+          const ponto = rows[0].data;
 
-            if (ponto && ponto.registros?.length > 0) {
-              const ultimo = ponto.registros[ponto.registros.length - 1];
+          if (ponto && ponto.registros?.length > 0) {
+            const ultimo = ponto.registros[ponto.registros.length - 1];
 
-              // Se o último registro ainda não tem saída, fecha o ponto
-              if (!ultimo.saida) {
-                const agora = new Date().toISOString();
-                ultimo.saida = agora;
+            if (!ultimo.saida) {
+              const agora = new Date().toISOString();
+              ultimo.saida = agora;
 
-                const entrada = new Date(ultimo.entrada);
-                const saida = new Date(ultimo.saida);
-                const diff = saida - entrada;
-                ponto.acumuladoMs = (ponto.acumuladoMs || 0) + diff;
+              const entrada = new Date(ultimo.entrada);
+              const saida = new Date(ultimo.saida);
+              const diff = saida - entrada;
+              ponto.acumuladoMs = (ponto.acumuladoMs || 0) + diff;
 
-                ponto.saida = agora;
+              ponto.saida = agora;
 
-                await pool.query(
-                  `UPDATE pontos SET data = $1 WHERE user_id = $2 AND data->>'data' = $3`,
-                  [JSON.stringify(ponto), userId, dataHoje]
+              await pool.query(
+                `UPDATE pontos SET data = $1 WHERE user_id = $2 AND data->>'data' = $3`,
+                [JSON.stringify(ponto), userId, dataHoje]
+              );
+
+              if (canalNotificacoes) {
+                canalNotificacoes.send(
+                  `⏰ <@${userId}>, seu ponto foi fechado automaticamente ao sair da call hoje (${dataHoje}). Você trabalhou ${Math.floor(diff / 3600000)}h ${Math.floor((diff % 3600000) / 60000)}m nesta sessão.`
                 );
-
-                console.log(`[SAÍDA AUTOMÁTICA] Ponto fechado para ${userId}`);
               }
             }
           }
-        } catch (err) {
-          console.error("Erro ao fechar ponto ao sair da call:", err);
-        } finally {
-          // Limpa o timer após execução
-          delete timersFechamento[userId];
         }
-      }, 2 * 60 * 1000); // 2 minutos
+      }
     }
 
-    // Usuário entrou ou mudou de canal, cancela o timer se existir
-    if (newState.channelId) {
-      if (timersFechamento[userId]) {
-        clearTimeout(timersFechamento[userId]);
-        delete timersFechamento[userId];
-        console.log(`[ENTRADA] Timer de fechamento cancelado para ${userId}`);
+    // Sua lógica original abaixo, sem alterações:
+    if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
+      if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
+        clearTimeout(timersMutados[oldState.id]);
+        delete timersMutados[oldState.id];
+      }
+    }
+
+    if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
+      if (newState.mute && newState.deaf) {
+        if (!timersMutados[newState.id]) {
+          timersMutados[newState.id] = setTimeout(() => {
+            const membro = newState.guild.members.cache.get(newState.id);
+            if (membro.voice.channel && membro.voice.mute && membro.voice.deaf) {
+              membro.voice.disconnect().catch(() => {});
+              const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
+              if (canal) {
+                canal.send(`⚠️ <@${newState.id}> foi desconectado automaticamente por mutar e desativar som por mais de 5 minutos.`);
+              }
+            }
+            delete timersMutados[newState.id];
+          }, 5 * 60 * 1000);
+        }
+      } else {
+        clearTimeout(timersMutados[newState.id]);
+        delete timersMutados[newState.id];
       }
     }
   } catch (err) {
     console.error("Erro no voiceStateUpdate:", err);
   }
 });
-
 
 
 client.login(process.env.TOKEN);
