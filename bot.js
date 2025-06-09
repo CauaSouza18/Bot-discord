@@ -240,21 +240,67 @@ if (interaction.customId === 'entrada') {
 });
 
 // Monitoramento de usuários mutados na categoria monitorada
-client.on('voiceStateUpdate', (oldState, newState) => {
+
+const { Pool } = require('pg');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL
+});
+
+const timersMutados = {};
+
+client.on('voiceStateUpdate', async (oldState, newState) => {
+  // Detecta quando o usuário sai da call
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
       clearTimeout(timersMutados[oldState.id]);
       delete timersMutados[oldState.id];
+
+      // 🔽 REGISTRA HORÁRIO DE SAÍDA NO POSTGRES
+      const userId = oldState.id;
+      const horarioSaida = new Date();
+
+      const jsonData = {
+        saida: horarioSaida.toISOString()
+      };
+
+      try {
+        await pool.query(
+          'INSERT INTO ponto (user_id, data) VALUES ($1, $2)',
+          [userId, jsonData]
+        );
+        console.log(`✅ Saída registrada para ${userId} às ${horarioSaida.toLocaleTimeString('pt-BR')}`);
+      } catch (err) {
+        console.error('❌ Erro ao salvar ponto de saída:', err);
+      }
     }
   }
 
+  // Quando ENTRA na call da categoria monitorada
   if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
     if (newState.mute && newState.deaf) {
       if (!timersMutados[newState.id]) {
-        timersMutados[newState.id] = setTimeout(() => {
+        timersMutados[newState.id] = setTimeout(async () => {
           const membro = newState.guild.members.cache.get(newState.id);
           if (membro.voice.channel && membro.voice.mute && membro.voice.deaf) {
-            membro.voice.disconnect().catch(() => {});
+            await membro.voice.disconnect().catch(() => {});
+
+            // 🔽 REGISTRA SAÍDA FORÇADA NO POSTGRES
+            const userId = newState.id;
+            const horarioSaida = new Date();
+            const jsonData = {
+              saida: horarioSaida.toISOString()
+            };
+
+            try {
+              await pool.query(
+                'INSERT INTO ponto (user_id, data) VALUES ($1, $2)',
+                [userId, jsonData]
+              );
+              console.log(`🔴 Saída forçada registrada para ${userId}`);
+            } catch (err) {
+              console.error('❌ Erro ao salvar saída forçada:', err);
+            }
+
             const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
             if (canal) {
               canal.send(`⚠️ <@${newState.id}> foi desconectado automaticamente por mutar e desativar som por mais de 5 minutos.`);
