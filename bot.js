@@ -50,8 +50,8 @@ let pontos = {};
   pontos = await db.getPontos();
 })();
 
-async function salvarDados() {
-  await db.salvarPontos(pontos);
+async function salvarDados(userId, tipo) {
+  await db.salvarPontos(userId, tipo);
 }
 
 // Temporizadores para monitorar mutados na call
