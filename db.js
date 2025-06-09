@@ -3,37 +3,81 @@ require('dotenv').config();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // ssl: { rejectUnauthorized: false } // se precisar de SSL, descomente
+  // ssl: { rejectUnauthorized: false } // descomente se necessário
 });
 
 const CANAL_NOTIFICACOES_ID = '1372769457201610783'; // ID do canal de notificações
 
-async function fecharPontoDoUsuario(userId, guild) {
+async function getPontos(usuarioId) {
   const client = await pool.connect();
   try {
-    const hoje = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    const result = await client.query('SELECT data FROM pontos WHERE user_id = $1', [usuarioId]);
+    const dados = result.rows[0]?.data || {};
+    return typeof dados === 'string' ? JSON.parse(dados) : dados;
+  } catch (err) {
+    console.error(`[ERRO] ao buscar pontos do usuário ${usuarioId}:`, err);
+    return {};
+  } finally {
+    client.release();
+  }
+}
+
+async function salvarPontos(usuarioId, tipo) {
+  const client = await pool.connect();
+  try {
+    const hoje = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour12: false });
 
-    // Busca o ponto do usuário no banco
-    const res = await client.query('SELECT data FROM pontos WHERE user_id = $1', [userId]);
-
+    const res = await client.query('SELECT data FROM pontos WHERE user_id = $1', [usuarioId]);
     let dados = res.rows[0]?.data || {};
 
-    // Se vier como string, converte para objeto
     if (typeof dados === 'string') {
       dados = JSON.parse(dados);
     }
 
-    // Verifica se existe ponto aberto para hoje (entrada sem saída)
+    if (!dados[hoje]) {
+      dados[hoje] = {};
+    }
+
+    dados[hoje][tipo] = horaAgora;
+
+    await client.query(
+      `INSERT INTO pontos (user_id, data)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE
+       SET data = EXCLUDED.data`,
+      [usuarioId, dados]
+    );
+
+    return dados[hoje];
+  } catch (err) {
+    console.error(`[ERRO] ao salvar ponto do tipo ${tipo} do usuário ${usuarioId}:`, err);
+    return null;
+  } finally {
+    client.release();
+  }
+}
+
+async function fecharPontoDoUsuario(userId, guild) {
+  const client = await pool.connect();
+  try {
+    const hoje = new Date().toISOString().split('T')[0];
+    const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+
+    const res = await client.query('SELECT data FROM pontos WHERE user_id = $1', [userId]);
+    let dados = res.rows[0]?.data || {};
+
+    if (typeof dados === 'string') {
+      dados = JSON.parse(dados);
+    }
+
     if (!dados[hoje] || !dados[hoje].entrada || dados[hoje].saida) {
       console.log(`[DEBUG] Nenhum ponto aberto para fechar do usuário ${userId}.`);
       return;
     }
 
-    // Fecha o ponto marcando a saída
     dados[hoje].saida = horaAgora;
 
-    // Atualiza o banco com o ponto fechado
     await client.query(
       `UPDATE pontos SET data = $1 WHERE user_id = $2`,
       [dados, userId]
@@ -41,7 +85,6 @@ async function fecharPontoDoUsuario(userId, guild) {
 
     console.log(`[DEBUG] Ponto fechado do usuário ${userId} às ${horaAgora}.`);
 
-    // Envia notificação no canal, se existir
     const canal = guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
     if (canal) {
       canal.send(`🕔 <@${userId}> teve o ponto encerrado automaticamente às ${horaAgora}.`);
@@ -56,8 +99,5 @@ async function fecharPontoDoUsuario(userId, guild) {
 module.exports = {
   getPontos,
   salvarPontos,
-  fecharPontoDoUsuario, // Exporta a nova função também
+  fecharPontoDoUsuario,
 };
-
-
-
