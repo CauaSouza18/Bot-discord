@@ -261,7 +261,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 
       try {
         await pool.query(
-          'INSERT INTO ponto (user_id, data) VALUES ($1, $2)',
+          'INSERT INTO pontos (user_id, data) VALUES ($1, $2)',
           [userId, jsonData]
         );
         console.log(`✅ Saída registrada para ${userId} às ${horarioSaida.toLocaleTimeString('pt-BR')}`);
