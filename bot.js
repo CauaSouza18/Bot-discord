@@ -245,49 +245,33 @@ const { Pool } = require('pg');
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
-
-client.on('voiceStateUpdate', async (oldState, newState) => {
+client.on('voiceStateUpdate', (oldState, newState) => {
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
-      clearTimeout(timersMutados[oldState.member.id]);
-      delete timersMutados[oldState.member.id];
+      clearTimeout(timersMutados[oldState.id]);
+      delete timersMutados[oldState.id];
+    }
+  }
 
-      const userId = oldState.member.id;
-      const horarioSaida = new Date();
-
-      // Verifique se o usuário tem ponto aberto em cache
-      if (pontos[userId] && pontos[userId].entrada) {
-        const entradaDate = new Date(pontos[userId].entrada);
-        const tempo = horarioSaida - entradaDate;
-
-        // Atualiza cache local
-        pontos[userId].acumuladoMs += tempo;
-        pontos[userId].registros.push({ entrada: pontos[userId].entrada, saida: horarioSaida.toISOString() });
-        pontos[userId].entrada = null;
-
-        // Atualiza banco com o novo JSON completo (você precisa adaptar isso para armazenar todo o histórico)
-        try {
-          await pool.query(
-            'UPDATE pontos SET data = $2 WHERE user_id = $1',
-            [userId, JSON.stringify(pontos[userId])]
-          );
-
-          console.log(`✅ Saída registrada para ${userId} às ${horarioSaida.toLocaleTimeString('pt-BR')}`);
-
-          // Envia mensagem no canal
-          const canal = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
-          if (canal) {
-            const horas = Math.floor(tempo / 3600000);
-            const minutos = Math.floor((tempo % 3600000) / 60000);
-            canal.send(`📤 <@${userId}> bateu ponto de saída às ${horarioSaida.toLocaleTimeString('pt-BR')}. Trabalhou ${horas}h ${minutos}m.`);
+  if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
+    if (newState.mute && newState.deaf) {
+      if (!timersMutados[newState.id]) {
+        timersMutados[newState.id] = setTimeout(() => {
+          const membro = newState.guild.members.cache.get(newState.id);
+          if (membro.voice.channel && membro.voice.mute && membro.voice.deaf) {
+            membro.voice.disconnect().catch(() => {});
+            const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
+            if (canal) {
+              canal.send(`⚠️ <@${newState.id}> foi desconectado automaticamente por mutar e desativar som por mais de 5 minutos.`);
+            }
           }
-        } catch (err) {
-          console.error('❌ Erro ao salvar ponto de saída:', err);
-        }
+          delete timersMutados[newState.id];
+        }, 5 * 60 * 1000);
       }
+    } else {
+      clearTimeout(timersMutados[newState.id]);
+      delete timersMutados[newState.id];
     }
   }
 });
-
-
 client.login(process.env.TOKEN);
