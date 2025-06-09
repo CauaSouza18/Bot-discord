@@ -247,16 +247,18 @@ const pool = new Pool({
 });
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
-  // Detecta quando o usuário sai da call
+  const userId = oldState.member?.id || newState.member?.id;
+  if (!userId) return;
+
+  // Saiu da call da categoria monitorada?
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
-      clearTimeout(timersMutados[oldState.id]);
-      delete timersMutados[oldState.id];
+      if (timersMutados[userId]) {
+        clearTimeout(timersMutados[userId]);
+        delete timersMutados[userId];
+      }
 
-      // 🔽 REGISTRA HORÁRIO DE SAÍDA NO POSTGRES
-      const userId = oldState.id;
       const horarioSaida = new Date();
-
       const jsonData = {
         saida: horarioSaida.toISOString()
       };
@@ -264,7 +266,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       try {
         await pool.query(
           'INSERT INTO ponto (user_id, data) VALUES ($1, $2)',
-          [userId, jsonData]
+          [userId, jsonData] // Ou JSON.stringify(jsonData) se precisar
         );
         console.log(`✅ Saída registrada para ${userId} às ${horarioSaida.toLocaleTimeString('pt-BR')}`);
       } catch (err) {
@@ -273,17 +275,15 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     }
   }
 
-  // Quando ENTRA na call da categoria monitorada
+  // Entrou na call da categoria monitorada e está mutado + deaf
   if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
     if (newState.mute && newState.deaf) {
-      if (!timersMutados[newState.id]) {
-        timersMutados[newState.id] = setTimeout(async () => {
-          const membro = newState.guild.members.cache.get(newState.id);
-          if (membro.voice.channel && membro.voice.mute && membro.voice.deaf) {
+      if (!timersMutados[userId]) {
+        timersMutados[userId] = setTimeout(async () => {
+          const membro = newState.guild.members.cache.get(userId);
+          if (membro?.voice.channel && membro.voice.mute && membro.voice.deaf) {
             await membro.voice.disconnect().catch(() => {});
 
-            // 🔽 REGISTRA SAÍDA FORÇADA NO POSTGRES
-            const userId = newState.id;
             const horarioSaida = new Date();
             const jsonData = {
               saida: horarioSaida.toISOString()
@@ -301,17 +301,20 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 
             const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
             if (canal) {
-              canal.send(`⚠️ <@${newState.id}> foi desconectado automaticamente por mutar e desativar som por mais de 5 minutos.`);
+              canal.send(`⚠️ <@${userId}> foi desconectado automaticamente por mutar e desativar som por mais de 5 minutos.`);
             }
           }
-          delete timersMutados[newState.id];
+          delete timersMutados[userId];
         }, 5 * 60 * 1000);
       }
     } else {
-      clearTimeout(timersMutados[newState.id]);
-      delete timersMutados[newState.id];
+      if (timersMutados[userId]) {
+        clearTimeout(timersMutados[userId]);
+        delete timersMutados[userId];
+      }
     }
   }
 });
+
 
 client.login(process.env.TOKEN);
