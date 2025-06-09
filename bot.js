@@ -245,104 +245,25 @@ const { Pool } = require('pg');
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
+const { fecharPontoDoUsuario } = require('./db'); // ou o nome do seu módulo do banco
+
 client.on('voiceStateUpdate', async (oldState, newState) => {
-  try {
-    // Quando sai do canal (newState.channelId == null)
-    if (oldState.channelId && !newState.channelId) {
-      console.log(`[DEBUG] Usuário ${oldState.id} saiu do canal ${oldState.channelId}`);
+  // Verifica se saiu da call
+  if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
+    // Verifica se a call era da categoria monitorada
+    if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
+      console.log(`[DEBUG] Usuário ${oldState.id} saiu da call monitorada`);
 
-      if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
-        console.log(`[DEBUG] Canal pertence à categoria monitorada ${CATEGORIA_MONITORADA}`);
-
-        const userId = oldState.id;
-        const dataHoje = new Date().toISOString().split('T')[0];
-        const canalNotificacoes = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
-
-        // Consulta no banco
-        const { rows } = await pool.query(
-          `SELECT * FROM pontos WHERE user_id = $1 AND data->>'data' = $2`,
-          [userId, dataHoje]
-        );
-        console.log(`[DEBUG] Registros encontrados: ${rows.length}`);
-
-        if (rows.length > 0) {
-          const ponto = rows[0].data;
-
-          if (ponto && ponto.registros?.length > 0) {
-            const ultimo = ponto.registros[ponto.registros.length - 1];
-            console.log(`[DEBUG] Último registro:`, ultimo);
-
-            if (!ultimo.saida) {
-              const agora = new Date().toISOString();
-              ultimo.saida = agora;
-
-              const entrada = new Date(ultimo.entrada);
-              const saida = new Date(ultimo.saida);
-              const diff = saida - entrada;
-              ponto.acumuladoMs = (ponto.acumuladoMs || 0) + diff;
-              ponto.saida = agora;
-
-              await pool.query(
-                `UPDATE pontos SET data = $1 WHERE user_id = $2 AND data->>'data' = $3`,
-                [JSON.stringify(ponto), userId, dataHoje]
-              );
-              console.log(`[DEBUG] Ponto atualizado no banco`);
-
-              if (canalNotificacoes) {
-                await canalNotificacoes.send(
-                  `⏰ <@${userId}>, seu ponto foi fechado automaticamente ao sair da call hoje (${dataHoje}). Você trabalhou ${Math.floor(diff / 3600000)}h ${Math.floor((diff % 3600000) / 60000)}m nesta sessão.`
-                );
-                console.log(`[DEBUG] Notificação enviada no canal`);
-              } else {
-                console.log(`[DEBUG] Canal de notificações não encontrado`);
-              }
-            } else {
-              console.log(`[DEBUG] Último registro já possui saída`);
-            }
-          } else {
-            console.log(`[DEBUG] Nenhum registro válido encontrado no ponto`);
-          }
-        } else {
-          console.log(`[DEBUG] Nenhum ponto encontrado para o usuário no dia`);
-        }
+      // Tenta fechar o ponto
+      const resultado = await fecharPontoDoUsuario(oldState.id);
+      if (resultado) {
+        console.log(`[INFO] ✅ Ponto fechado automaticamente para ${oldState.id}`);
       } else {
-        console.log(`[DEBUG] Canal não pertence à categoria monitorada`);
+        console.log(`[INFO] ⚠️ Nenhum ponto aberto encontrado para ${oldState.id}`);
       }
     }
-
-    // Seu código original de timers para mutado + deaf continua igual:
-    if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
-      if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
-        clearTimeout(timersMutados[oldState.id]);
-        delete timersMutados[oldState.id];
-      }
-    }
-
-    if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
-      if (newState.mute && newState.deaf) {
-        if (!timersMutados[newState.id]) {
-          timersMutados[newState.id] = setTimeout(() => {
-            const membro = newState.guild.members.cache.get(newState.id);
-            if (membro.voice.channel && membro.voice.mute && membro.voice.deaf) {
-              membro.voice.disconnect().catch(() => {});
-              const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
-              if (canal) {
-                canal.send(`⚠️ <@${newState.id}> foi desconectado automaticamente por mutar e desativar som por mais de 5 minutos.`);
-              }
-            }
-            delete timersMutados[newState.id];
-          }, 5 * 60 * 1000);
-        }
-      } else {
-        clearTimeout(timersMutados[newState.id]);
-        delete timersMutados[newState.id];
-      }
-    }
-  } catch (err) {
-    console.error("Erro no voiceStateUpdate:", err);
   }
 });
-
 
 client.login(process.env.TOKEN);
 
