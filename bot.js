@@ -245,7 +245,6 @@ const { Pool } = require('pg');
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
-
 client.on('voiceStateUpdate', async (oldState, newState) => {
   try {
     // Verifica se o usuário saiu da call
@@ -289,6 +288,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     console.error("Erro ao fechar ponto ao sair da call:", err);
   }
 });
+
 
 
 client.login(process.env.TOKEN);
