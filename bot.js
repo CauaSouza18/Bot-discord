@@ -12,7 +12,8 @@ const {
 const fs = require('fs');
 require('dotenv').config();
 
-const db = require('./db'); // Aqui seu módulo adaptado para PostgreSQL
+const db = require('./db'); // módulo adaptado para PostgreSQL
+const { fecharPontoDoUsuario } = require('./db'); //  db.js
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]
@@ -241,29 +242,53 @@ if (interaction.customId === 'entrada') {
 
 // Monitoramento de usuários mutados na categoria monitorada
 
-const { Pool } = require('pg');
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-});
-const { fecharPontoDoUsuario } = require('./db'); // ou o nome do seu módulo do banco
-
 client.on('voiceStateUpdate', async (oldState, newState) => {
-  // Verifica se saiu da call
+  // Usuário saiu de um canal de voz
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
-    // Verifica se a call era da categoria monitorada
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
-      console.log(`[DEBUG] Usuário ${oldState.id} saiu da call monitorada`);
+      console.log(`[DEBUG] Usuário ${oldState.id} saiu da call monitorada.`);
 
-      // Tenta fechar o ponto
-      const resultado = await fecharPontoDoUsuario(oldState.id);
-      if (resultado) {
-        console.log(`[INFO] ✅ Ponto fechado automaticamente para ${oldState.id}`);
-      } else {
-        console.log(`[INFO] ⚠️ Nenhum ponto aberto encontrado para ${oldState.id}`);
+      // Cancela timer se existir
+      if (timersMutados[oldState.id]) {
+        clearTimeout(timersMutados[oldState.id]);
+        delete timersMutados[oldState.id];
+      }
+
+      // Fecha o ponto automaticamente
+      try {
+        await fecharPontoDoUsuario(oldState.id);
+        console.log(`[DEBUG] Ponto do usuário ${oldState.id} fechado com sucesso ao sair da call.`);
+      } catch (err) {
+        console.error(`[ERRO] Falha ao fechar ponto do usuário ${oldState.id}:`, err);
+      }
+    }
+  }
+
+  // Usuário entrou numa call da categoria monitorada
+  if (newState.channelId && newState.channel?.parentId === CATEGORIA_MONITORADA) {
+    if (newState.mute && newState.deaf) {
+      if (!timersMutados[newState.id]) {
+        timersMutados[newState.id] = setTimeout(() => {
+          const membro = newState.guild.members.cache.get(newState.id);
+          if (membro.voice.channel && membro.voice.mute && membro.voice.deaf) {
+            membro.voice.disconnect().catch(() => {});
+            const canal = newState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
+            if (canal) {
+              canal.send(`⚠️ <@${newState.id}> foi desconectado automaticamente por estar mutado e surdo por mais de 5 minutos.`);
+            }
+          }
+          delete timersMutados[newState.id];
+        }, 5 * 60 * 1000); // 5 minutos
+      }
+    } else {
+      if (timersMutados[newState.id]) {
+        clearTimeout(timersMutados[newState.id]);
+        delete timersMutados[newState.id];
       }
     }
   }
 });
+
 
 client.login(process.env.TOKEN);
 
