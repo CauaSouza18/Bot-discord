@@ -255,25 +255,39 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       const userId = oldState.member.id;
       const horarioSaida = new Date();
 
-      const jsonData = {
-        saida: horarioSaida.toISOString()
-      };
+      // Verifique se o usuário tem ponto aberto em cache
+      if (pontos[userId] && pontos[userId].entrada) {
+        const entradaDate = new Date(pontos[userId].entrada);
+        const tempo = horarioSaida - entradaDate;
 
-    try {
-  await pool.query(
-    'UPDATE pontos SET data = $2 WHERE user_id = $1',
-    [userId, JSON.stringify(jsonData)]
-  );
-  console.log(`✅ Saída registrada para ${userId} às ${horarioSaida.toLocaleTimeString('pt-BR')}`);
-} catch (err) {
-  console.error('❌ Erro ao salvar ponto de saída:', err);
-}
+        // Atualiza cache local
+        pontos[userId].acumuladoMs += tempo;
+        pontos[userId].registros.push({ entrada: pontos[userId].entrada, saida: horarioSaida.toISOString() });
+        pontos[userId].entrada = null;
 
+        // Atualiza banco com o novo JSON completo (você precisa adaptar isso para armazenar todo o histórico)
+        try {
+          await pool.query(
+            'UPDATE pontos SET data = $2 WHERE user_id = $1',
+            [userId, JSON.stringify(pontos[userId])]
+          );
+
+          console.log(`✅ Saída registrada para ${userId} às ${horarioSaida.toLocaleTimeString('pt-BR')}`);
+
+          // Envia mensagem no canal
+          const canal = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
+          if (canal) {
+            const horas = Math.floor(tempo / 3600000);
+            const minutos = Math.floor((tempo % 3600000) / 60000);
+            canal.send(`📤 <@${userId}> bateu ponto de saída às ${horarioSaida.toLocaleTimeString('pt-BR')}. Trabalhou ${horas}h ${minutos}m.`);
+          }
+        } catch (err) {
+          console.error('❌ Erro ao salvar ponto de saída:', err);
+        }
+      }
     }
   }
-  // resto do seu código continua...
 });
-
 
 
 client.login(process.env.TOKEN);
