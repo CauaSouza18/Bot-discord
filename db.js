@@ -95,6 +95,22 @@ async function fecharPontoDoUsuario(userId, guild) {
     client.release();
   }
 }
+async function getTodosPontos() {
+  const client = await pool.connect();
+  try {
+    const res = await client.query('SELECT user_id, data FROM pontos');
+    const todosDados = {};
+    for (const row of res.rows) {
+      todosDados[row.user_id] = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+    }
+    return todosDados;
+  } catch (err) {
+    console.error('[ERRO] ao buscar todos os pontos:', err);
+    return {};
+  } finally {
+    client.release();
+  }
+}
 
 module.exports = {
   getPontos,
