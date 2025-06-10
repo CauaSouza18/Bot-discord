@@ -47,7 +47,8 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 let pontos = {};
 
 (async () => {
-  pontos = await db.getPontos();
+  pontos = await db.getTodosPontos();
+  console.log('Pontos carregados em memória:', Object.keys(pontos).length, 'usuários');
 })();
 
 async function salvarDados(userId, tipo) {
