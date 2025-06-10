@@ -189,7 +189,8 @@ if (interaction.customId === 'entrada') {
   }
 
       pontos[userId].entrada = new Date().toISOString();
-      await salvarDados();
+     await salvarDados(userId, 'entrada');
+
 
       if (canal) canal.send(`📥 <@${userId}> bateu ponto de entrada às ${new Date(pontos[userId].entrada).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`);
 
@@ -208,7 +209,9 @@ if (interaction.customId === 'entrada') {
       pontos[userId].acumuladoMs += tempo;
       pontos[userId].registros.push({ entrada: pontos[userId].entrada, saida: agora.toISOString() });
       pontos[userId].entrada = null;
-      await salvarDados();
+      await salvarDados(userId, 'saida');
+
+
 
       const horas = Math.floor(tempo / 3600000);
       const minutos = Math.floor((tempo % 3600000) / 60000);
@@ -265,7 +268,9 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         pontos[userId].acumuladoMs += tempo;
         pontos[userId].registros.push({ entrada: pontos[userId].entrada, saida: agora.toISOString() });
         pontos[userId].entrada = null;
-        await salvarDados();
+       await salvarDados(userId, 'saida');
+
+
 
         const horas = Math.floor(tempo / 3600000);
         const minutos = Math.floor((tempo % 3600000) / 60000);
