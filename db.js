@@ -116,4 +116,5 @@ module.exports = {
   getPontos,
   salvarPontos,
   fecharPontoDoUsuario,
+  getTodosPontos,
 };
