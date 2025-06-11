@@ -249,35 +249,53 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   const membro = await oldState.guild.members.fetch(userId).catch(() => null);
   const canal = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
-  // Se saiu de uma call da categoria monitorada
+  // Verifica se saiu de uma call da categoria monitorada
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
       console.log(`[DEBUG] Usuário ${userId} saiu da call monitorada.`);
 
-      // Limpa temporizadores
+      // Limpa temporizador de mudo, se existir
       if (timersMutados[userId]) {
         clearTimeout(timersMutados[userId]);
         delete timersMutados[userId];
       }
 
-      // Se estava com ponto aberto
+      // Se havia ponto aberto
       if (pontos[userId]?.entrada) {
         const agora = new Date();
         const entradaDate = new Date(pontos[userId].entrada);
+
+        if (isNaN(entradaDate)) {
+          console.warn(`[AVISO] Data de entrada inválida para usuário ${userId}:`, pontos[userId].entrada);
+          return;
+        }
+
         const tempo = agora - entradaDate;
 
+        // Validação para evitar tempos absurdos (maior que 12h)
+        if (tempo > 12 * 60 * 60 * 1000) {
+          console.warn(`[AVISO] Tempo excessivo detectado para usuário ${userId}: ${Math.floor(tempo / 3600000)}h. Ignorando ponto.`);
+          return;
+        }
+
         pontos[userId].acumuladoMs += tempo;
-        pontos[userId].registros.push({ entrada: pontos[userId].entrada, saida: agora.toISOString() });
+        pontos[userId].registros.push({
+          entrada: pontos[userId].entrada,
+          saida: agora.toISOString(),
+        });
+
         pontos[userId].entrada = null;
-       await salvarDados(userId, 'saida');
 
-
+        await salvarDados(userId, 'saida');
 
         const horas = Math.floor(tempo / 3600000);
         const minutos = Math.floor((tempo % 3600000) / 60000);
 
         if (canal) {
-          canal.send(`📤 <@${userId}> foi desconectado da call e teve o ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Trabalhou ${horas}h ${minutos}m.`);
+          canal.send(
+            `📤 <@${userId}> foi desconectado da call e teve o ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. ` +
+            `Trabalhou ${horas}h ${minutos}m.`
+          );
         }
       }
     }
