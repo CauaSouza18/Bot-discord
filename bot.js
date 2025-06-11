@@ -244,59 +244,68 @@ if (interaction.customId === 'entrada') {
   }
 });
 
+const fechandoPonto = {}; // controle para evitar duplicidade de fechamento
+
 client.on('voiceStateUpdate', async (oldState, newState) => {
   const userId = oldState.id;
-  const membro = await oldState.guild.members.fetch(userId).catch(() => null);
   const canal = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
   // Verifica se saiu de uma call da categoria monitorada
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
-      console.log(`[DEBUG] Usuário ${userId} saiu da call monitorada.`);
+      if (fechandoPonto[userId]) return; // já está fechando para esse usuário
 
-      // Limpa temporizador de mudo, se existir
-      if (timersMutados[userId]) {
-        clearTimeout(timersMutados[userId]);
-        delete timersMutados[userId];
-      }
+      fechandoPonto[userId] = true;
+      try {
+        console.log(`[DEBUG] Usuário ${userId} saiu da call monitorada.`);
 
-      // Se havia ponto aberto
-      if (pontos[userId]?.entrada) {
-        const agora = new Date();
-        const entradaDate = new Date(pontos[userId].entrada);
-
-        if (isNaN(entradaDate)) {
-          console.warn(`[AVISO] Data de entrada inválida para usuário ${userId}:`, pontos[userId].entrada);
-          return;
+        // Limpa temporizador de mudo, se existir
+        if (timersMutados[userId]) {
+          clearTimeout(timersMutados[userId]);
+          delete timersMutados[userId];
         }
 
-        const tempo = agora - entradaDate;
+        if (pontos[userId]?.entrada) {
+          const agora = new Date();
+          const entradaDate = new Date(pontos[userId].entrada);
 
-        // Validação para evitar tempos absurdos (maior que 12h)
-        if (tempo > 12 * 60 * 60 * 1000) {
-          console.warn(`[AVISO] Tempo excessivo detectado para usuário ${userId}: ${Math.floor(tempo / 3600000)}h. Ignorando ponto.`);
-          return;
+          if (isNaN(entradaDate)) {
+            console.warn(`[AVISO] Data de entrada inválida para usuário ${userId}:`, pontos[userId].entrada);
+            return;
+          }
+
+          const tempo = agora - entradaDate;
+
+          // Validação para evitar tempos absurdos (maior que 12h)
+          if (tempo > 12 * 60 * 60 * 1000) {
+            console.warn(`[AVISO] Tempo excessivo detectado para usuário ${userId}: ${Math.floor(tempo / 3600000)}h. Ignorando ponto.`);
+            return;
+          }
+
+          // Atualiza acumulado e registra ponto
+          pontos[userId].acumuladoMs += tempo;
+          pontos[userId].registros.push({
+            entrada: pontos[userId].entrada,
+            saida: agora.toISOString(),
+          });
+
+          // Define entrada = null antes de salvar para evitar concorrência
+          pontos[userId].entrada = null;
+
+          await salvarDados(userId, 'saida');
+
+          const horas = Math.floor(tempo / 3600000);
+          const minutos = Math.floor((tempo % 3600000) / 60000);
+
+          if (canal) {
+            canal.send(
+              `📤 <@${userId}> foi desconectado da call e teve o ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. ` +
+              `Trabalhou ${horas}h ${minutos}m.`
+            );
+          }
         }
-
-        pontos[userId].acumuladoMs += tempo;
-        pontos[userId].registros.push({
-          entrada: pontos[userId].entrada,
-          saida: agora.toISOString(),
-        });
-
-        pontos[userId].entrada = null;
-
-        await salvarDados(userId, 'saida');
-
-        const horas = Math.floor(tempo / 3600000);
-        const minutos = Math.floor((tempo % 3600000) / 60000);
-
-        if (canal) {
-          canal.send(
-            `📤 <@${userId}> foi desconectado da call e teve o ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. ` +
-            `Trabalhou ${horas}h ${minutos}m.`
-          );
-        }
+      } finally {
+        delete fechandoPonto[userId]; // libera trava
       }
     }
   }
