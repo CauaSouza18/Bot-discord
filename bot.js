@@ -70,8 +70,6 @@ client.on('interactionCreate', async (interaction) => {
   const membro = interaction.guild.members.cache.get(userId);
   const canal = interaction.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
-  const { getTodosPontos } = require('./db'); // Certifique-se que o caminho esteja certo
-
   // Certifique-se de que a interação é um comando
   if (!interaction.isChatInputCommand()) return;
 
