@@ -111,6 +111,8 @@ client.on('interactionCreate', async (interaction) => {
 
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
+  }
+});
 
     // Verifica se o usuário tem cargos permitidos
     if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
