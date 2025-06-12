@@ -70,48 +70,67 @@ client.on('interactionCreate', async (interaction) => {
   const membro = interaction.guild.members.cache.get(userId);
   const canal = interaction.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
-  if (interaction.isChatInputCommand()) {
-    if (interaction.commandName === 'relatorio_geral') {
-      if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
-        return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
-      }
+const { getTodosPontos } = require('./db'); // ajuste o caminho
 
-      const agora = new Date();
-      const hoje = agora.toISOString().slice(0, 10);
-      const inicioSemana = new Date(agora);
-      inicioSemana.setDate(agora.getDate() - agora.getDay());
-      const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+if (interaction.isChatInputCommand()) {
+  if (interaction.commandName === 'relatorio_geral') {
+    if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
+      return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
+    }
 
-      let relatorio = '';
-      for (const uid in pontos) {
-        const user = await client.users.fetch(uid).catch(() => null);
-        if (!user) continue;
+    const agora = new Date();
+    const hoje = agora.toISOString().slice(0, 10);
+    const inicioSemana = new Date(agora);
+    inicioSemana.setDate(agora.getDate() - agora.getDay());
+    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
 
-        const registros = pontos[uid].registros || [];
-        let hojeMs = 0, semanaMs = 0, mesMs = 0;
+    const todosPontos = await getTodosPontos();
 
-        for (const r of registros) {
-          if (!r.entrada || !r.saida) continue;
-          const entrada = new Date(r.entrada);
-          const saida = new Date(r.saida);
+    if (!todosPontos || Object.keys(todosPontos).length === 0) {
+      return interaction.reply({ content: 'Nenhum dado disponível.', ephemeral: true });
+    }
+
+    let relatorio = '';
+
+    for (const uid in todosPontos) {
+      const user = await client.users.fetch(uid).catch(() => null);
+      if (!user) continue;
+
+      const dadosUsuario = todosPontos[uid];
+      let hojeMs = 0, semanaMs = 0, mesMs = 0, totalMs = 0;
+
+      // dadosUsuario tem a estrutura { 'YYYY-MM-DD': { entrada: '', saida: '', acumuladoMs: number, ... } }
+      for (const dia in dadosUsuario) {
+        const registrosDia = dadosUsuario[dia];
+
+        // Se acumuladoMs está salvo diretamente no dia
+        if (registrosDia.acumuladoMs) totalMs += registrosDia.acumuladoMs;
+
+        // Se acumuladoMs não existe, tenta calcular tempo pelo intervalo entre entrada e saida
+        if (registrosDia.entrada && registrosDia.saida) {
+          const entrada = new Date(`${dia}T${registrosDia.entrada}`);
+          const saida = new Date(`${dia}T${registrosDia.saida}`);
           const tempo = saida - entrada;
 
-          if (r.entrada.startsWith(hoje)) hojeMs += tempo;
+          if (dia === hoje) hojeMs += tempo;
           if (entrada >= inicioSemana) semanaMs += tempo;
           if (entrada >= inicioMes) mesMs += tempo;
         }
-
-        const formatar = ms => `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
-        relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(pontos[uid].acumuladoMs || 0)}\n\n`;
       }
 
-      const embed = new EmbedBuilder()
-        .setTitle('📊 Relatório Geral de Todos os Usuários')
-        .setColor(0x2ecc71)
-        .setDescription(relatorio || 'Nenhum dado disponível.');
+      const formatar = ms => `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
 
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(totalMs)}\n\n`;
     }
+
+    const embed = new EmbedBuilder()
+      .setTitle('📊 Relatório Geral de Todos os Usuários')
+      .setColor(0x2ecc71)
+      .setDescription(relatorio);
+
+    return interaction.reply({ embeds: [embed], ephemeral: true });
+  }
+}
 
     // Verifica se o usuário tem cargos permitidos
     if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
