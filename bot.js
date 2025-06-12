@@ -62,7 +62,7 @@ const timersMutados = {};
 client.on('ready', () => {
   console.log(`🤖 Bot ${client.user.tag} está online!`);
 });
-client.on('interactionCreate', async (interaction) => {More actions
+client.on('interactionCreate', async (interaction) => {
   if (!interaction.inGuild()) return;
 
   const userId = interaction.user.id;
