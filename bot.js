@@ -64,38 +64,39 @@ client.on('ready', () => {
 });
 
 
-const { getTodosPontos } = require('./db'); // ajuste o caminho se necessário
-
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.inGuild()) return;
-
   if (!interaction.isChatInputCommand()) return;
 
   const userId = interaction.user.id;
   const membro = interaction.guild.members.cache.get(userId);
 
-  if (interaction.commandName === 'relatorio_geral') {
-    if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
-      return interaction.reply({
-        content: ':x: Você não tem permissão para usar este comando.',
-        ephemeral: true
-      });
-    }
+  if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
+    return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
+  }
 
-    // ✅ Carregar todos os pontos do banco de dados
+  if (interaction.commandName === 'relatorio_geral') {
     const pontos = await getTodosPontos();
 
     const agora = new Date();
     const hoje = agora.toISOString().slice(0, 10);
     const inicioSemana = new Date(agora);
+    // Se quiser início na segunda-feira:
+    // const diaSemana = agora.getDay();
+    // inicioSemana.setDate(agora.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1));
     inicioSemana.setDate(agora.getDate() - agora.getDay());
     const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
 
     let relatorio = '';
-    for (const uid in pontos) {
-      const user = await client.users.fetch(uid).catch(() => null);
-      if (!user) continue;
 
+    // Buscar todos usuários paralelamente
+    const usuarios = await Promise.all(
+      Object.keys(pontos).map(uid => client.users.fetch(uid).catch(() => null))
+    );
+
+    usuarios.forEach((user, index) => {
+      if (!user) return;
+      const uid = Object.keys(pontos)[index];
       const registros = pontos[uid].registros || [];
       let hojeMs = 0, semanaMs = 0, mesMs = 0;
 
@@ -112,12 +113,13 @@ client.on('interactionCreate', async (interaction) => {
 
       const formatar = ms => `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
       relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(pontos[uid].acumuladoMs || 0)}\n\n`;
-    }
+    });
 
     const embed = new EmbedBuilder()
       .setTitle(':bar_chart: Relatório Geral de Todos os Usuários')
       .setColor(0x2ecc71)
-      .setDescription(relatorio || 'Nenhum dado disponível.');
+      .setDescription(relatorio || 'Nenhum dado disponível.')
+      .setTimestamp();
 
     return interaction.reply({ embeds: [embed], ephemeral: true });
   }
