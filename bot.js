@@ -244,51 +244,28 @@ if (interaction.customId === 'entrada') {
   }
 });
 
-const fechandoPonto = {}; // controle para evitar duplicidade de fechamento
-
 client.on('voiceStateUpdate', async (oldState, newState) => {
   const userId = oldState.id;
-  const membro = await oldState.guild.members.fetch(userId).catch(() => null);
   const canal = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
-  // Verifica se saiu de uma call da categoria monitorada
+  // Saiu de uma call da categoria monitorada
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
       console.log(`[DEBUG] Usuário ${userId} saiu da call monitorada.`);
 
-      // Limpa temporizador de mudo, se existir
-      if (timersMutados[userId]) {
-        clearTimeout(timersMutados[userId]);
-        delete timersMutados[userId];
-      }
-
-      // Se havia ponto aberto
       if (pontos[userId]?.entrada) {
         const agora = new Date();
         const entradaDate = new Date(pontos[userId].entrada);
 
-        // Validação básica
-        if (!entradaDate || isNaN(entradaDate.getTime())) {
+        if (isNaN(entradaDate)) {
           console.warn(`[AVISO] Data de entrada inválida para usuário ${userId}:`, pontos[userId].entrada);
           return;
         }
 
         const tempoMs = agora - entradaDate;
-        const tempoHoras = tempoMs / (1000 * 60 * 60);
 
-        // Limites de segurança
-        if (tempoHoras < 0.05) {
-          console.warn(`[IGNORADO] Tempo muito curto (${tempoHoras.toFixed(2)}h) para usuário ${userId}.`);
-          return;
-        }
-
-        if (tempoHoras > 12) {
-          console.warn(`[AVISO] Tempo excessivo detectado (${tempoHoras.toFixed(2)}h) para usuário ${userId}. Ignorando ponto.`);
-          return;
-        }
-
-        // Registro válido
-        pontos[userId].acumuladoMs += tempoMs;
+        // Não ignora tempo, fecha sempre
+        pontos[userId].acumuladoMs = (pontos[userId].acumuladoMs || 0) + tempoMs;
         pontos[userId].registros.push({
           entrada: pontos[userId].entrada,
           saida: agora.toISOString(),
@@ -307,10 +284,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             `Trabalhou ${horas}h ${minutos}m.`
           );
         }
+      } else {
+        console.log(`[DEBUG] Usuário ${userId} saiu da call, mas não tinha ponto aberto.`);
       }
     }
   }
 });
+
 
 
 client.login(process.env.TOKEN);
