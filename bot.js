@@ -71,65 +71,50 @@ client.on('interactionCreate', async (interaction) => {
   const canal = interaction.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 const { getTodosPontos } = require('./db'); // ajuste o caminho conforme necessário
 
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== 'relatorio_geral') return;
-
-  const membro = interaction.member;
-  const CARGO_RELATORIO_ID = 'SEU_CARGO_ID_AQUI'; // substitua pelo ID do cargo correto
-
-  if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
-    return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
-  }
-
-  const agora = new Date();
-  const hoje = agora.toISOString().slice(0, 10);
-  const inicioSemana = new Date(agora);
-  inicioSemana.setDate(agora.getDate() - agora.getDay());
-  const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
-
-  const todosPontos = await getTodosPontos();
-
-  if (!todosPontos || Object.keys(todosPontos).length === 0) {
-    return interaction.reply({ content: 'Nenhum dado disponível.', ephemeral: true });
-  }
-
-  let relatorio = '';
-
-  for (const uid in todosPontos) {
-    const user = await client.users.fetch(uid).catch(() => null);
-    if (!user) continue;
-
-    const dadosUsuario = todosPontos[uid];
-    let hojeMs = 0, semanaMs = 0, mesMs = 0, totalMs = 0;
-
-    for (const dia in dadosUsuario) {
-      const registrosDia = dadosUsuario[dia];
-
-      if (registrosDia.acumuladoMs) totalMs += registrosDia.acumuladoMs;
-
-      if (registrosDia.entrada && registrosDia.saida) {
-        const entrada = new Date(`${dia}T${registrosDia.entrada}`);
-        const saida = new Date(`${dia}T${registrosDia.saida}`);
-        const tempo = saida - entrada;
-
-        if (dia === hoje) hojeMs += tempo;
-        if (entrada >= inicioSemana) semanaMs += tempo;
-        if (entrada >= inicioMes) mesMs += tempo;
+if (interaction.isChatInputCommand()) {
+    if (interaction.commandName === 'relatorio_geral') {
+      if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
+        return interaction.reply({ content: ':x: Você não tem permissão para usar este comando.', ephemeral: true });
       }
+
+      const agora = new Date();
+      const hoje = agora.toISOString().slice(0, 10);
+      const inicioSemana = new Date(agora);
+      inicioSemana.setDate(agora.getDate() - agora.getDay());
+      const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+
+      let relatorio = '';
+      for (const uid in pontos) {
+        const user = await client.users.fetch(uid).catch(() => null);
+        if (!user) continue;
+
+        const registros = pontos[uid].registros || [];
+        let hojeMs = 0, semanaMs = 0, mesMs = 0;
+
+        for (const r of registros) {
+          if (!r.entrada || !r.saida) continue;
+          const entrada = new Date(r.entrada);
+          const saida = new Date(r.saida);
+          const tempo = saida - entrada;
+
+          if (r.entrada.startsWith(hoje)) hojeMs += tempo;
+          if (entrada >= inicioSemana) semanaMs += tempo;
+          if (entrada >= inicioMes) mesMs += tempo;
+        }
+
+        const formatar = ms => `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
+        relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(pontos[uid].acumuladoMs || 0)}\n\n`;
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle(':bar_chart: Relatório Geral de Todos os Usuários')
+        .setColor(0x2ecc71)
+        .setDescription(relatorio || 'Nenhum dado disponível.');
+
+      return interaction.reply({ embeds: [embed], ephemeral: true });
     }
+  if (!interaction.isChatInputCommand()) return;
 
-    const formatar = ms => `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
-    relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(totalMs)}\n\n`;
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle('📊 Relatório Geral de Todos os Usuários')
-    .setColor(0x2ecc71)
-    .setDescription(relatorio || 'Nenhum dado disponível.');
-
-  return interaction.reply({ embeds: [embed], ephemeral: true });
-});
 
     // Verifica se o usuário tem cargos permitidos
     if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
