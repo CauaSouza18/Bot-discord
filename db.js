@@ -6,7 +6,6 @@ const pool = new Pool({
   // ssl: { rejectUnauthorized: false } // descomente se necessário
 });
 
-// Busca os pontos (registro de entrada e saída) do usuário no banco
 async function getPontos(usuarioId) {
   const client = await pool.connect();
   try {
@@ -21,22 +20,26 @@ async function getPontos(usuarioId) {
   }
 }
 
-// Salva um ponto (entrada ou saída) do usuário no banco
 async function salvarPontos(usuarioId, tipo) {
   const client = await pool.connect();
   try {
-    const hoje = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const hoje = new Date().toISOString().split('T')[0];
     const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour12: false });
 
     const res = await client.query('SELECT data FROM pontos WHERE user_id = $1', [usuarioId]);
     let dados = res.rows[0]?.data || {};
+    if (typeof dados === 'string') dados = JSON.parse(dados);
 
-    if (typeof dados === 'string') {
-      dados = JSON.parse(dados);
+    if (!dados[hoje]) dados[hoje] = {};
+
+    // Evita sobrescrever registros
+    if (tipo === 'entrada' && dados[hoje].entrada) {
+      console.warn(`[AVISO] Entrada já registrada para ${usuarioId} em ${hoje}.`);
+      return dados[hoje];
     }
-
-    if (!dados[hoje]) {
-      dados[hoje] = {};
+    if (tipo === 'saida' && dados[hoje].saida) {
+      console.warn(`[AVISO] Saída já registrada para ${usuarioId} em ${hoje}.`);
+      return dados[hoje];
     }
 
     dados[hoje][tipo] = horaAgora;
@@ -58,7 +61,6 @@ async function salvarPontos(usuarioId, tipo) {
   }
 }
 
-// Fecha o ponto do usuário (coloca saída com hora atual)
 async function fecharPontoDoUsuario(userId, guild) {
   const client = await pool.connect();
   try {
@@ -67,10 +69,7 @@ async function fecharPontoDoUsuario(userId, guild) {
 
     const res = await client.query('SELECT data FROM pontos WHERE user_id = $1', [userId]);
     let dados = res.rows[0]?.data || {};
-
-    if (typeof dados === 'string') {
-      dados = JSON.parse(dados);
-    }
+    if (typeof dados === 'string') dados = JSON.parse(dados);
 
     if (!dados[hoje] || !dados[hoje].entrada || dados[hoje].saida) {
       console.log(`[DEBUG] Nenhum ponto aberto para fechar do usuário ${userId}.`);
@@ -86,7 +85,7 @@ async function fecharPontoDoUsuario(userId, guild) {
 
     console.log(`[DEBUG] Ponto fechado do usuário ${userId} às ${horaAgora}.`);
 
-    const canal = guild.channels.cache.get('1372769457201610783'); // seu canal de notificações fixo
+    const canal = guild.channels.cache.get('1372769457201610783');
     if (canal) {
       canal.send(`🕔 <@${userId}> teve o ponto encerrado automaticamente às ${horaAgora}.`);
     }
@@ -97,7 +96,6 @@ async function fecharPontoDoUsuario(userId, guild) {
   }
 }
 
-// Pega todos os pontos de todos os usuários
 async function getTodosPontos() {
   const client = await pool.connect();
   try {
@@ -115,17 +113,21 @@ async function getTodosPontos() {
   }
 }
 
-// Função para calcular tempo trabalhado com base em entrada e saída (string HH:mm:ss)
 function calcularTempoTrabalhado(dadosDia) {
   if (!dadosDia || !dadosDia.entrada || !dadosDia.saida) return null;
 
-  // Parse das strings para Date usando hoje como base
   const hojeStr = new Date().toISOString().split('T')[0];
   const entrada = new Date(`${hojeStr}T${dadosDia.entrada}`);
   const saida = new Date(`${hojeStr}T${dadosDia.saida}`);
 
   let diffMs = saida - entrada;
-  if (diffMs < 0) diffMs = 0; // não negativo
+  if (diffMs < 0) diffMs = 0;
+
+  const limiteMaxMs = 8 * 60 * 60 * 1000; // 8 horas
+  if (diffMs > limiteMaxMs) {
+    console.warn(`[WARN] Tempo acima do limite em ${hojeStr}: ${diffMs / 3600000}h. Reduzindo para 8h.`);
+    diffMs = limiteMaxMs;
+  }
 
   const horas = Math.floor(diffMs / 3600000);
   const minutos = Math.floor((diffMs % 3600000) / 60000);
@@ -134,10 +136,24 @@ function calcularTempoTrabalhado(dadosDia) {
   return { totalMs: diffMs, horas, minutos, segundos };
 }
 
+// Diagnóstico: verifica usuários com mais de 10h/dia
+async function verificarUsuariosComHorasAbsurdas() {
+  const todos = await getTodosPontos();
+  for (const [userId, dias] of Object.entries(todos)) {
+    for (const [data, dadosDia] of Object.entries(dias)) {
+      const tempo = calcularTempoTrabalhado(dadosDia);
+      if (tempo && tempo.horas >= 10) {
+        console.log(`⚠️ Usuário ${userId} tem ${tempo.horas}h em ${data}`);
+      }
+    }
+  }
+}
+
 module.exports = {
   getPontos,
   salvarPontos,
   fecharPontoDoUsuario,
   getTodosPontos,
   calcularTempoTrabalhado,
+  verificarUsuariosComHorasAbsurdas
 };
