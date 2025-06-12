@@ -6,8 +6,7 @@ const pool = new Pool({
   // ssl: { rejectUnauthorized: false } // descomente se necessário
 });
 
-const CANAL_NOTIFICACOES_ID = '1372769457201610783'; // ID do canal de notificações
-
+// Busca os pontos (registro de entrada e saída) do usuário no banco
 async function getPontos(usuarioId) {
   const client = await pool.connect();
   try {
@@ -22,6 +21,7 @@ async function getPontos(usuarioId) {
   }
 }
 
+// Salva um ponto (entrada ou saída) do usuário no banco
 async function salvarPontos(usuarioId, tipo) {
   const client = await pool.connect();
   try {
@@ -58,6 +58,7 @@ async function salvarPontos(usuarioId, tipo) {
   }
 }
 
+// Fecha o ponto do usuário (coloca saída com hora atual)
 async function fecharPontoDoUsuario(userId, guild) {
   const client = await pool.connect();
   try {
@@ -85,7 +86,7 @@ async function fecharPontoDoUsuario(userId, guild) {
 
     console.log(`[DEBUG] Ponto fechado do usuário ${userId} às ${horaAgora}.`);
 
-    const canal = guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
+    const canal = guild.channels.cache.get('1372769457201610783'); // seu canal de notificações fixo
     if (canal) {
       canal.send(`🕔 <@${userId}> teve o ponto encerrado automaticamente às ${horaAgora}.`);
     }
@@ -95,6 +96,8 @@ async function fecharPontoDoUsuario(userId, guild) {
     client.release();
   }
 }
+
+// Pega todos os pontos de todos os usuários
 async function getTodosPontos() {
   const client = await pool.connect();
   try {
@@ -112,9 +115,29 @@ async function getTodosPontos() {
   }
 }
 
+// Função para calcular tempo trabalhado com base em entrada e saída (string HH:mm:ss)
+function calcularTempoTrabalhado(dadosDia) {
+  if (!dadosDia || !dadosDia.entrada || !dadosDia.saida) return null;
+
+  // Parse das strings para Date usando hoje como base
+  const hojeStr = new Date().toISOString().split('T')[0];
+  const entrada = new Date(`${hojeStr}T${dadosDia.entrada}`);
+  const saida = new Date(`${hojeStr}T${dadosDia.saida}`);
+
+  let diffMs = saida - entrada;
+  if (diffMs < 0) diffMs = 0; // não negativo
+
+  const horas = Math.floor(diffMs / 3600000);
+  const minutos = Math.floor((diffMs % 3600000) / 60000);
+  const segundos = Math.floor((diffMs % 60000) / 1000);
+
+  return { totalMs: diffMs, horas, minutos, segundos };
+}
+
 module.exports = {
   getPontos,
   salvarPontos,
   fecharPontoDoUsuario,
   getTodosPontos,
+  calcularTempoTrabalhado,
 };
