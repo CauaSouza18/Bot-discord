@@ -63,23 +63,27 @@ client.on('ready', () => {
   console.log(`🤖 Bot ${client.user.tag} está online!`);
 });
 
+const { EmbedBuilder } = require('discord.js');
+const { getTodosPontos } = require('./db'); // ajuste o caminho se necessário
+
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.inGuild()) return;
 
+  if (!interaction.isChatInputCommand()) return;
+
   const userId = interaction.user.id;
   const membro = interaction.guild.members.cache.get(userId);
-  const canal = interaction.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
-
-  // Certifique-se de que a interação é um comando
-  if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'relatorio_geral') {
     if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
-      return interaction.reply({ content: ':x: Você não tem permissão para usar este comando.', ephemeral: true });
+      return interaction.reply({
+        content: ':x: Você não tem permissão para usar este comando.',
+        ephemeral: true
+      });
     }
 
-    // Carregar todos os pontos do banco de dados
-    const pontos = await getTodosPontos(); // ← Aqui estava o problema principal
+    // ✅ Carregar todos os pontos do banco de dados
+    const pontos = await getTodosPontos();
 
     const agora = new Date();
     const hoje = agora.toISOString().slice(0, 10);
@@ -110,7 +114,6 @@ client.on('interactionCreate', async (interaction) => {
       relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(pontos[uid].acumuladoMs || 0)}\n\n`;
     }
 
-    const { EmbedBuilder } = require('discord.js');
     const embed = new EmbedBuilder()
       .setTitle(':bar_chart: Relatório Geral de Todos os Usuários')
       .setColor(0x2ecc71)
