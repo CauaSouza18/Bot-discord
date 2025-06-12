@@ -62,69 +62,55 @@ const timersMutados = {};
 client.on('ready', () => {
   console.log(`🤖 Bot ${client.user.tag} está online!`);
 });
-
-
-client.on('interactionCreate', async (interaction) => {
+client.on('interactionCreate', async (interaction) => {More actions
   if (!interaction.inGuild()) return;
-  if (!interaction.isChatInputCommand()) return;
 
   const userId = interaction.user.id;
   const membro = interaction.guild.members.cache.get(userId);
+  const canal = interaction.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
-  if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
-    return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
-  }
-
-  if (interaction.commandName === 'relatorio_geral') {
-    const pontos = await getTodosPontos();
-
-    const agora = new Date();
-    const hoje = agora.toISOString().slice(0, 10);
-    const inicioSemana = new Date(agora);
-    // Se quiser início na segunda-feira:
-    // const diaSemana = agora.getDay();
-    // inicioSemana.setDate(agora.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1));
-    inicioSemana.setDate(agora.getDate() - agora.getDay());
-    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
-
-    let relatorio = '';
-
-    // Buscar todos usuários paralelamente
-    const usuarios = await Promise.all(
-      Object.keys(pontos).map(uid => client.users.fetch(uid).catch(() => null))
-    );
-
-    usuarios.forEach((user, index) => {
-      if (!user) return;
-      const uid = Object.keys(pontos)[index];
-      const registros = pontos[uid].registros || [];
-      let hojeMs = 0, semanaMs = 0, mesMs = 0;
-
-      for (const r of registros) {
-        if (!r.entrada || !r.saida) continue;
-        const entrada = new Date(r.entrada);
-        const saida = new Date(r.saida);
-        const tempo = saida - entrada;
-
-        if (r.entrada.startsWith(hoje)) hojeMs += tempo;
-        if (entrada >= inicioSemana) semanaMs += tempo;
-        if (entrada >= inicioMes) mesMs += tempo;
+  if (interaction.isChatInputCommand()) {
+    if (interaction.commandName === 'relatorio_geral') {
+      if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
+        return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
       }
 
-      const formatar = ms => `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
-      relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(pontos[uid].acumuladoMs || 0)}\n\n`;
-    });
+      const agora = new Date();
+      const hoje = agora.toISOString().slice(0, 10);
+      const inicioSemana = new Date(agora);
+      inicioSemana.setDate(agora.getDate() - agora.getDay());
+      const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
 
-    const embed = new EmbedBuilder()
-      .setTitle(':bar_chart: Relatório Geral de Todos os Usuários')
-      .setColor(0x2ecc71)
-      .setDescription(relatorio || 'Nenhum dado disponível.')
-      .setTimestamp();
+      let relatorio = '';
+      for (const uid in pontos) {
+        const user = await client.users.fetch(uid).catch(() => null);
+        if (!user) continue;
 
-    return interaction.reply({ embeds: [embed], ephemeral: true });
-  }
-});
+        const registros = pontos[uid].registros || [];
+        let hojeMs = 0, semanaMs = 0, mesMs = 0;
 
+        for (const r of registros) {
+          if (!r.entrada || !r.saida) continue;
+          const entrada = new Date(r.entrada);
+          const saida = new Date(r.saida);
+          const tempo = saida - entrada;
+
+          if (r.entrada.startsWith(hoje)) hojeMs += tempo;
+          if (entrada >= inicioSemana) semanaMs += tempo;
+          if (entrada >= inicioMes) mesMs += tempo;
+        }
+
+        const formatar = ms => `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
+        relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(pontos[uid].acumuladoMs || 0)}\n\n`;
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle('📊 Relatório Geral de Todos os Usuários')
+        .setColor(0x2ecc71)
+        .setDescription(relatorio || 'Nenhum dado disponível.');
+
+      return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
 
     // Verifica se o usuário tem cargos permitidos
     if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
