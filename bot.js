@@ -62,7 +62,7 @@ const timersMutados = {};
 client.on('ready', () => {
   console.log(`🤖 Bot ${client.user.tag} está online!`);
 });
-client.on('interactionCreate', async (interaction) => {
+client.on('interactionCreate', async (interaction) => {More actions
   if (!interaction.inGuild()) return;
 
   const userId = interaction.user.id;
@@ -74,8 +74,6 @@ client.on('interactionCreate', async (interaction) => {
       if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
         return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
       }
-
-      const pontos = await getTodosPontos(); // Obtenha os pontos do banco antes de usar
 
       const agora = new Date();
       const hoje = agora.toISOString().slice(0, 10);
@@ -113,13 +111,6 @@ client.on('interactionCreate', async (interaction) => {
 
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
-
-    // Verifica se o usuário tem cargos permitidos
-    if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
-      return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
-    }
-  }
-});
 
     // Verifica se o usuário tem cargos permitidos
     if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
