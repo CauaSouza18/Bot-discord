@@ -248,64 +248,65 @@ const fechandoPonto = {}; // controle para evitar duplicidade de fechamento
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
   const userId = oldState.id;
+  const membro = await oldState.guild.members.fetch(userId).catch(() => null);
   const canal = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
   // Verifica se saiu de uma call da categoria monitorada
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
-      if (fechandoPonto[userId]) return; // já está fechando para esse usuário
+      console.log(`[DEBUG] Usuário ${userId} saiu da call monitorada.`);
 
-      fechandoPonto[userId] = true;
-      try {
-        console.log(`[DEBUG] Usuário ${userId} saiu da call monitorada.`);
+      // Limpa temporizador de mudo, se existir
+      if (timersMutados[userId]) {
+        clearTimeout(timersMutados[userId]);
+        delete timersMutados[userId];
+      }
 
-        // Limpa temporizador de mudo, se existir
-        if (timersMutados[userId]) {
-          clearTimeout(timersMutados[userId]);
-          delete timersMutados[userId];
+      // Se havia ponto aberto
+      if (pontos[userId]?.entrada) {
+        const agora = new Date();
+        const entradaDate = new Date(pontos[userId].entrada);
+
+        // Validação básica
+        if (!entradaDate || isNaN(entradaDate.getTime())) {
+          console.warn(`[AVISO] Data de entrada inválida para usuário ${userId}:`, pontos[userId].entrada);
+          return;
         }
 
-        if (pontos[userId]?.entrada) {
-          const agora = new Date();
-          const entradaDate = new Date(pontos[userId].entrada);
+        const tempoMs = agora - entradaDate;
+        const tempoHoras = tempoMs / (1000 * 60 * 60);
 
-          if (isNaN(entradaDate)) {
-            console.warn(`[AVISO] Data de entrada inválida para usuário ${userId}:`, pontos[userId].entrada);
-            return;
-          }
-
-          const tempo = agora - entradaDate;
-
-          // Validação para evitar tempos absurdos (maior que 12h)
-          if (tempo > 12 * 60 * 60 * 1000) {
-            console.warn(`[AVISO] Tempo excessivo detectado para usuário ${userId}: ${Math.floor(tempo / 3600000)}h. Ignorando ponto.`);
-            return;
-          }
-
-          // Atualiza acumulado e registra ponto
-          pontos[userId].acumuladoMs += tempo;
-          pontos[userId].registros.push({
-            entrada: pontos[userId].entrada,
-            saida: agora.toISOString(),
-          });
-
-          // Define entrada = null antes de salvar para evitar concorrência
-          pontos[userId].entrada = null;
-
-          await salvarDados(userId, 'saida');
-
-          const horas = Math.floor(tempo / 3600000);
-          const minutos = Math.floor((tempo % 3600000) / 60000);
-
-          if (canal) {
-            canal.send(
-              `📤 <@${userId}> foi desconectado da call e teve o ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. ` +
-              `Trabalhou ${horas}h ${minutos}m.`
-            );
-          }
+        // Limites de segurança
+        if (tempoHoras < 0.05) {
+          console.warn(`[IGNORADO] Tempo muito curto (${tempoHoras.toFixed(2)}h) para usuário ${userId}.`);
+          return;
         }
-      } finally {
-        delete fechandoPonto[userId]; // libera trava
+
+        if (tempoHoras > 12) {
+          console.warn(`[AVISO] Tempo excessivo detectado (${tempoHoras.toFixed(2)}h) para usuário ${userId}. Ignorando ponto.`);
+          return;
+        }
+
+        // Registro válido
+        pontos[userId].acumuladoMs += tempoMs;
+        pontos[userId].registros.push({
+          entrada: pontos[userId].entrada,
+          saida: agora.toISOString(),
+        });
+
+        pontos[userId].entrada = null;
+
+        await salvarDados(userId, 'saida');
+
+        const horas = Math.floor(tempoMs / 3600000);
+        const minutos = Math.floor((tempoMs % 3600000) / 60000);
+
+        if (canal) {
+          canal.send(
+            `📤 <@${userId}> foi desconectado da call e teve o ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. ` +
+            `Trabalhou ${horas}h ${minutos}m.`
+          );
+        }
       }
     }
   }
