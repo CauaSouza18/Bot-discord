@@ -1,123 +1,49 @@
-const {
-  Client,
-  GatewayIntentBits,
-  REST,
-  Routes,
-  SlashCommandBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder
-} = require('discord.js');
-const fs = require('fs');
-require('dotenv').config();
-
-const db = require('./db'); // módulo adaptado para PostgreSQL
-const { fecharPontoDoUsuario } = require('./db'); //  db.js
-
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]
-});
-
-// Configurações
-const CARGOS_PERMITIDOS = ['1372769455406579730'];
-const CARGO_RELATORIO_ID = '1372769455393734656'; // Cargo que pode ver relatorio geral
-const CANAL_NOTIFICACOES_ID = '1372769457201610783';
-const CATEGORIA_MONITORADA = '1372769457621172314';
-
-// Comandos
-const commands = [
-  new SlashCommandBuilder().setName('painel').setDescription('Envia o painel para bater ponto').toJSON(),
-  new SlashCommandBuilder().setName('ranking').setDescription('Mostra o ranking de horas batidas').toJSON(),
-  new SlashCommandBuilder().setName('relatorio_geral').setDescription('Mostra o relatório completo de todos os usuários').toJSON(),
-];
-
-const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-
-(async () => {
-  try {
-    await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
-    console.log('✅ Comandos registrados com sucesso!');
-  } catch (error) {
-    console.error('❌ Erro ao registrar comandos:', error);
+if (interaction.commandName === 'relatorio_geral') {
+  if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
+    return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
   }
-})();
 
-// Dados em memória carregados do banco PostgreSQL
-let pontos = {};
+  const agora = new Date();
+  const hoje = agora.toISOString().slice(0, 10);
+  const inicioSemana = new Date(agora);
+  inicioSemana.setDate(agora.getDate() - agora.getDay());
+  const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
 
-(async () => {
-  pontos = await db.getTodosPontos();
-  console.log('Pontos carregados em memória:', Object.keys(pontos).length, 'usuários');
-})();
+  const relatorios = await Promise.all(
+    Object.keys(pontos).map(async (uid) => {
+      const user = await client.users.fetch(uid).catch(() => null);
+      if (!user) return null;
 
-async function salvarDados(userId, tipo) {
-  await db.salvarPontos(userId, tipo);
+      const registros = pontos[uid].registros || [];
+      let hojeMs = 0, semanaMs = 0, mesMs = 0;
+
+      for (const r of registros) {
+        if (!r.entrada || !r.saida) continue;
+        const entrada = new Date(r.entrada);
+        const saida = new Date(r.saida);
+        const tempo = saida - entrada;
+
+        if (r.entrada.startsWith(hoje)) hojeMs += tempo;
+        if (entrada >= inicioSemana) semanaMs += tempo;
+        if (entrada >= inicioMes) mesMs += tempo;
+      }
+
+      const formatar = ms => `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
+      return `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(pontos[uid].acumuladoMs || 0)}\n\n`;
+    })
+  );
+
+  const relatorio = relatorios.filter(Boolean).join('') || 'Nenhum dado disponível.';
+
+  const embed = new EmbedBuilder()
+    .setTitle('📊 Relatório Geral de Todos os Usuários')
+    .setColor(0x2ecc71)
+    .setDescription(relatorio);
+
+  return interaction.reply({ embeds: [embed], ephemeral: true });
 }
 
-// Temporizadores para monitorar mutados na call
-const timersMutados = {};
 
-// Eventos do Discord
-client.on('ready', () => {
-  console.log(`🤖 Bot ${client.user.tag} está online!`);
-});
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.inGuild()) return;
-
-  const userId = interaction.user.id;
-  const membro = interaction.guild.members.cache.get(userId);
-  const canal = interaction.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
-
-  if (interaction.isChatInputCommand()) {
-    if (interaction.commandName === 'relatorio_geral') {
-      if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
-        return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
-      }
-
-      const agora = new Date();
-      const hoje = agora.toISOString().slice(0, 10);
-      const inicioSemana = new Date(agora);
-      inicioSemana.setDate(agora.getDate() - agora.getDay());
-      const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
-
-      let relatorio = '';
-      for (const uid in pontos) {
-        const user = await client.users.fetch(uid).catch(() => null);
-        if (!user) continue;
-
-        const registros = pontos[uid].registros || [];
-        let hojeMs = 0, semanaMs = 0, mesMs = 0;
-
-        for (const r of registros) {
-          if (!r.entrada || !r.saida) continue;
-          const entrada = new Date(r.entrada);
-          const saida = new Date(r.saida);
-          const tempo = saida - entrada;
-
-          if (r.entrada.startsWith(hoje)) hojeMs += tempo;
-          if (entrada >= inicioSemana) semanaMs += tempo;
-          if (entrada >= inicioMes) mesMs += tempo;
-        }
-
-        const formatar = ms => `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
-        relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(pontos[uid].acumuladoMs || 0)}\n\n`;
-      }
-
-      const embed = new EmbedBuilder()
-        .setTitle('📊 Relatório Geral de Todos os Usuários')
-        .setColor(0x2ecc71)
-        .setDescription(relatorio || 'Nenhum dado disponível.');
-
-      return interaction.reply({ embeds: [embed], ephemeral: true });
-    }
-  }
-});
-
-    // Verifica se o usuário tem cargos permitidos
-    if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
-      return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
-    }
 
    if (interaction.commandName === 'painel') {
         const embed = new EmbedBuilder()
