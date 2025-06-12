@@ -63,7 +63,7 @@ client.on('ready', () => {
   console.log(`🤖 Bot ${client.user.tag} está online!`);
 });
 
-const { EmbedBuilder } = require('discord.js');
+
 const { getTodosPontos } = require('./db'); // ajuste o caminho se necessário
 
 client.on('interactionCreate', async (interaction) => {
