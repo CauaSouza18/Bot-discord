@@ -240,21 +240,20 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   const membro = await oldState.guild.members.fetch(userId).catch(() => null);
   const canal = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
-  // Verifica se saiu de uma call da categoria monitorada
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
       console.log(`[DEBUG] Usuário ${userId} saiu da call monitorada.`);
 
-      // Limpa temporizador de mudo, se existir
       if (timersMutados[userId]) {
         clearTimeout(timersMutados[userId]);
         delete timersMutados[userId];
       }
-      if (fechandoPonto[userId]) return; // já está fechando para esse usuário
 
-      // Se havia ponto aberto
+      if (fechandoPonto[userId]) return;
+
       if (pontos[userId]?.entrada) {
         fechandoPonto[userId] = true;
+
         try {
           const agora = new Date();
           const entradaDate = new Date(pontos[userId].entrada);
@@ -266,13 +265,23 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 
           const tempo = agora - entradaDate;
 
-          // Validação para evitar tempos absurdos (maior que 12h)
           if (tempo > 12 * 60 * 60 * 1000) {
             console.warn(`[AVISO] Tempo excessivo detectado para usuário ${userId}: ${Math.floor(tempo / 3600000)}h. Ignorando ponto.`);
             return;
           }
 
-          // Atualiza acumulado e registra ponto
+          // **Garante que pontos[userId] e registros existem**
+          if (!pontos[userId]) {
+            pontos[userId] = {
+              acumuladoMs: 0,
+              registros: [],
+              entrada: null,
+            };
+          }
+          if (!Array.isArray(pontos[userId].registros)) {
+            pontos[userId].registros = [];
+          }
+
           pontos[userId].acumuladoMs += tempo;
           pontos[userId].registros.push({
             entrada: pontos[userId].entrada,
@@ -293,7 +302,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             );
           }
         } finally {
-          delete fechandoPonto[userId]; // libera trava
+          delete fechandoPonto[userId];
         }
       }
     }
