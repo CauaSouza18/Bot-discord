@@ -264,41 +264,16 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 
       // Se havia ponto aberto
       if (pontos[userId]?.entrada) {
-        const agora = new Date();
-        const entradaDate = new Date(pontos[userId].entrada);
-      fechandoPonto[userId] = true;
-      try {
-        console.log(`[DEBUG] Usuário ${userId} saiu da call monitorada.`);
-
-        if (isNaN(entradaDate)) {
-          console.warn(`[AVISO] Data de entrada inválida para usuário ${userId}:`, pontos[userId].entrada);
-          return;
-        // Limpa temporizador de mudo, se existir
-        if (timersMutados[userId]) {
-          clearTimeout(timersMutados[userId]);
-          delete timersMutados[userId];
-        }
-
-        const tempo = agora - entradaDate;
-        if (pontos[userId]?.entrada) {
+        fechandoPonto[userId] = true;
+        try {
           const agora = new Date();
           const entradaDate = new Date(pontos[userId].entrada);
 
-        // Validação para evitar tempos absurdos (maior que 12h)
-        if (tempo > 12 * 60 * 60 * 1000) {
-          console.warn(`[AVISO] Tempo excessivo detectado para usuário ${userId}: ${Math.floor(tempo / 3600000)}h. Ignorando ponto.`);
-          return;
-        }
           if (isNaN(entradaDate)) {
             console.warn(`[AVISO] Data de entrada inválida para usuário ${userId}:`, pontos[userId].entrada);
             return;
           }
 
-        pontos[userId].acumuladoMs += tempo;
-        pontos[userId].registros.push({
-          entrada: pontos[userId].entrada,
-          saida: agora.toISOString(),
-        });
           const tempo = agora - entradaDate;
 
           // Validação para evitar tempos absurdos (maior que 12h)
@@ -314,30 +289,22 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             saida: agora.toISOString(),
           });
 
-        pontos[userId].entrada = null;
-          // Define entrada = null antes de salvar para evitar concorrência
           pontos[userId].entrada = null;
 
-        await salvarDados(userId, 'saida');
           await salvarDados(userId, 'saida');
 
-    
-        const minutos = Math.floor((tempo % 3600000) / 60000);
           const horas = Math.floor(tempo / 3600000);
-        if (canal) {
-          canal.send(
-            `📤 <@${userId}> foi desconectado da call e teve o ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. ` +
-            `Trabalhou ${horas}h ${minutos}m.`
-          );
+          const minutos = Math.floor((tempo % 3600000) / 60000);
+
           if (canal) {
             canal.send(
               `📤 <@${userId}> foi desconectado da call e teve o ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. ` +
               `Trabalhou ${horas}h ${minutos}m.`
             );
           }
+        } finally {
+          delete fechandoPonto[userId]; // libera trava
         }
-      } finally {
-        delete fechandoPonto[userId]; // libera trava
       }
     }
   }
