@@ -70,47 +70,72 @@ client.on('interactionCreate', async (interaction) => {
   const canal = interaction.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
   if (interaction.isChatInputCommand()) {
-    if (interaction.commandName === 'relatorio_geral') {
-      if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
-        return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
-      }
-
-      const agora = new Date();
-      const hoje = agora.toISOString().slice(0, 10);
-      const inicioSemana = new Date(agora); inicioSemana.setDate(agora.getDate() - agora.getDay());
-      const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
-      const formatar = ms => `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
-
-      let relatorio = '';
-      for (const uid in pontos) {
-        const user = await client.users.fetch(uid).catch(() => null);
-        if (!user) continue;
-
-        let hojeMs = 0, semanaMs = 0, mesMs = 0;
-        const registros = pontos[uid].registros || [];
-
-        for (const r of registros) {
-          if (!r.entrada || !r.saida) continue;
-          const entrada = new Date(r.entrada), saida = new Date(r.saida);
-          const tempo = saida - entrada;
-          if (tempo <= 0) continue;
-          if (r.entrada.startsWith(hoje)) hojeMs += tempo;
-          if (entrada >= inicioSemana) semanaMs += tempo;
-          if (entrada >= inicioMes) mesMs += tempo;
-        }
-
-        const totalMs = pontos[uid].acumuladoMs || 0;
-        relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(totalMs)}\n\n`;
-      }
-
-      if (!relatorio) relatorio = 'Nenhum dado disponível.';
-      const embed = new EmbedBuilder().setTitle('📊 Relatório Geral').setColor(0x2ecc71).setDescription(relatorio);
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+   if (interaction.commandName === 'relatorio_geral') {
+  try {
+    if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
+      return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
     }
 
-    if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
-      return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
+    // 👇 EVITA ERRO DE INTERAÇÃO EXPIRADA
+    await interaction.deferReply({ ephemeral: true });
+
+    const agora = new Date();
+    const hoje = agora.toISOString().slice(0, 10);
+    const inicioSemana = new Date(agora);
+    inicioSemana.setHours(0, 0, 0, 0);
+    inicioSemana.setDate(agora.getDate() - agora.getDay());
+    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+
+    const formatar = ms => {
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      return `${h}h ${m}m`;
+    };
+
+    let relatorio = '';
+
+    for (const uid in pontos) {
+      const user = await client.users.fetch(uid).catch(() => null);
+      if (!user) continue;
+
+      const registros = pontos[uid].registros || [];
+      let hojeMs = 0, semanaMs = 0, mesMs = 0;
+
+      for (const r of registros) {
+        if (!r.entrada || !r.saida) continue;
+        const entrada = new Date(r.entrada);
+        const saida = new Date(r.saida);
+        const tempo = saida - entrada;
+        if (tempo <= 0) continue;
+        if (r.entrada.startsWith(hoje)) hojeMs += tempo;
+        if (entrada >= inicioSemana) semanaMs += tempo;
+        if (entrada >= inicioMes) mesMs += tempo;
+      }
+
+      const totalMs = pontos[uid].acumuladoMs || 0;
+      relatorio += `👤 **${user.tag}**\nHoje: ${formatar(hojeMs)} | Semana: ${formatar(semanaMs)} | Mês: ${formatar(mesMs)} | Total: ${formatar(totalMs)}\n\n`;
     }
+
+    if (!relatorio) relatorio = 'Nenhum dado disponível.';
+
+    const embed = new EmbedBuilder()
+      .setTitle('📊 Relatório Geral de Todos os Usuários')
+      .setColor(0x2ecc71)
+      .setDescription(relatorio);
+
+    await interaction.editReply({ embeds: [embed] });
+
+  } catch (err) {
+    console.error('Erro no /relatorio_geral:', err);
+
+    // ⚠️ Se já fez deferReply, usa editReply
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({ content: '❌ Ocorreu um erro ao gerar o relatório.' });
+    } else {
+      await interaction.reply({ content: '❌ Ocorreu um erro ao gerar o relatório.', ephemeral: true });
+    }
+  }
+}
 
     if (interaction.commandName === 'painel') {
       const embed = new EmbedBuilder()
