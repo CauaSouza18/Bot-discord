@@ -214,8 +214,7 @@ if (interaction.customId === 'entrada') {
 
 
 
-      const horas = Math.floor(tempo / 3600000);
-      const minutos = Math.floor((tempo % 3600000) / 60000);
+     
 
       if (canal) {
         canal.send(`📤 <@${userId}> bateu ponto de saída às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Trabalhou ${horas}h ${minutos}m.`);
@@ -322,11 +321,9 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         await salvarDados(userId, 'saida');
           await salvarDados(userId, 'saida');
 
-        const horas = Math.floor(tempo / 3600000);
+    
         const minutos = Math.floor((tempo % 3600000) / 60000);
           const horas = Math.floor(tempo / 3600000);
-          const minutos = Math.floor((tempo % 3600000) / 60000);
-
         if (canal) {
           canal.send(
             `📤 <@${userId}> foi desconectado da call e teve o ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. ` +
