@@ -147,7 +147,7 @@ if (interaction.commandName === 'excluir') {
       await interaction.reply(`❌ Falha ao excluir o usuário <@${userId}>.`);
     }
   }
-}
+
     if (interaction.commandName === 'painel') {
       const embed = new EmbedBuilder()
         .setTitle('BATE-PONTO - ROTA')
