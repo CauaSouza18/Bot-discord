@@ -148,12 +148,27 @@ async function verificarUsuariosComHorasAbsurdas() {
     }
   }
 }
+async function excluirUsuario(userId) {
+  const client = await pool.connect();
+  try {
+    const res = await client.query('DELETE FROM pontos WHERE user_id = $1', [userId]);
+    return res.rowCount > 0; // retorna true se excluiu algum registro
+  } catch (err) {
+    console.error(`[ERRO] ao excluir usuário ${userId}:`, err);
+    return false;
+  } finally {
+    client.release();
+  }
+}
 
+// No final do arquivo, exporte a função junto com as outras:
 module.exports = {
   getPontos,
   salvarPontos,
   fecharPontoDoUsuario,
   getTodosPontos,
   calcularTempoTrabalhado,
-  verificarUsuariosComHorasAbsurdas
+  verificarUsuariosComHorasAbsurdas,
+  excluirUsuario,  // <- adiciona aqui
 };
+
