@@ -136,17 +136,34 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 }
+const CARGOS_PERMITIDOS_EXCLUIR = [
+  '1372769455440134261',
+  '1372769455440134262',
+  '1372769455448526948',
+  '1372769455465168956'
+]; // IDs dos cargos que podem usar o comando
+
+const temPermissao = (membro, cargosPermitidos) => 
+  cargosPermitidos.some(cargoId => membro.roles.cache.has(cargoId));
+
 if (interaction.commandName === 'excluir') {
-    const userId = interaction.options.getString('userid');
-
-    const sucesso = await excluirUsuario(userId);
-
-    if (sucesso) {
-      await interaction.reply(`✅ Usuário <@${userId}> excluído com sucesso.`);
-    } else {
-      await interaction.reply(`❌ Falha ao excluir o usuário <@${userId}>.`);
-    }
+  if (!temPermissao(membro, CARGOS_PERMITIDOS_EXCLUIR)) {
+    return interaction.reply({
+      content: '❌ Você não tem permissão para usar este comando.',
+      ephemeral: true
+    });
   }
+
+  const userId = interaction.options.getString('userid');
+  const sucesso = await excluirUsuario(userId);
+
+  if (sucesso) {
+    await interaction.reply(`✅ Usuário <@${userId}> excluído com sucesso.`);
+  } else {
+    await interaction.reply(`❌ Falha ao excluir o usuário <@${userId}>.`);
+  }
+}
+
 
     if (interaction.commandName === 'painel') {
       const embed = new EmbedBuilder()
