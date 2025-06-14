@@ -232,82 +232,103 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-
 const fechandoPonto = {}; // controle para evitar duplicidade de fechamento
+const timersAusencia = {}; // timers para ausência após sair da call
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
   const userId = oldState.id;
   const membro = await oldState.guild.members.fetch(userId).catch(() => null);
   const canal = oldState.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
+  // Usuário saiu de uma call (oldState.channelId existe, newState.channelId não existe ou é diferente)
   if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
+    
+    // Se estava numa call da categoria monitorada
     if (oldState.channel?.parentId === CATEGORIA_MONITORADA) {
       console.log(`[DEBUG] Usuário ${userId} saiu da call monitorada.`);
 
+      // Se havia timer de mudo, cancela
       if (timersMutados[userId]) {
         clearTimeout(timersMutados[userId]);
         delete timersMutados[userId];
       }
 
+      // Se já está fechando ponto, sai para evitar duplicidade
       if (fechandoPonto[userId]) return;
 
-      if (pontos[userId]?.entrada) {
-        fechandoPonto[userId] = true;
-
-        try {
-          const agora = new Date();
-          const entradaDate = new Date(pontos[userId].entrada);
-
-          if (isNaN(entradaDate)) {
-            console.warn(`[AVISO] Data de entrada inválida para usuário ${userId}:`, pontos[userId].entrada);
-            return;
-          }
-
-          const tempo = agora - entradaDate;
-
-          if (tempo > 12 * 60 * 60 * 1000) {
-            console.warn(`[AVISO] Tempo excessivo detectado para usuário ${userId}: ${Math.floor(tempo / 3600000)}h. Ignorando ponto.`);
-            return;
-          }
-
-          // **Garante que pontos[userId] e registros existem**
-          if (!pontos[userId]) {
-            pontos[userId] = {
-              acumuladoMs: 0,
-              registros: [],
-              entrada: null,
-            };
-          }
-          if (!Array.isArray(pontos[userId].registros)) {
-            pontos[userId].registros = [];
-          }
-
-          pontos[userId].acumuladoMs += tempo;
-          pontos[userId].registros.push({
-            entrada: pontos[userId].entrada,
-            saida: agora.toISOString(),
-          });
-
-          pontos[userId].entrada = null;
-
-          await salvarDados(userId, 'saida');
-
-          const horas = Math.floor(tempo / 3600000);
-          const minutos = Math.floor((tempo % 3600000) / 60000);
-
-          if (canal) {
-            canal.send(
-              `📤 <@${userId}> foi desconectado da call e teve o ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. ` +
-              `Trabalhou ${horas}h ${minutos}m.`
-            );
-          }
-        } finally {
-          delete fechandoPonto[userId];
-        }
+      // Inicia timer de ausência de 2 minutos para fechar o ponto
+      if (timersAusencia[userId]) {
+        clearTimeout(timersAusencia[userId]);
       }
+      timersAusencia[userId] = setTimeout(async () => {
+        // Se usuário não entrou em nenhuma call da categoria nesse tempo, fecha ponto
+        // Verifica se usuário está em call da categoria monitorada
+        const member = await oldState.guild.members.fetch(userId).catch(() => null);
+        const voiceChannel = member?.voice.channel;
+
+        if (!voiceChannel || voiceChannel.parentId !== CATEGORIA_MONITORADA) {
+          if (pontos[userId]?.entrada) {
+            fechandoPonto[userId] = true;
+            try {
+              const agora = new Date();
+              const entradaDate = new Date(pontos[userId].entrada);
+
+              if (isNaN(entradaDate)) {
+                console.warn(`[AVISO] Data de entrada inválida para usuário ${userId}:`, pontos[userId].entrada);
+                return;
+              }
+
+              const tempo = agora - entradaDate;
+
+              if (tempo > 12 * 60 * 60 * 1000) {
+                console.warn(`[AVISO] Tempo excessivo detectado para usuário ${userId}: ${Math.floor(tempo / 3600000)}h. Ignorando ponto.`);
+                return;
+              }
+
+              if (!Array.isArray(pontos[userId].registros)) {
+                pontos[userId].registros = [];
+              }
+
+              pontos[userId].acumuladoMs += tempo;
+              pontos[userId].registros.push({
+                entrada: pontos[userId].entrada,
+                saida: agora.toISOString(),
+              });
+
+              pontos[userId].entrada = null;
+
+              await salvarDados(userId, 'saida');
+
+              const horas = Math.floor(tempo / 3600000);
+              const minutos = Math.floor((tempo % 3600000) / 60000);
+
+              if (canal) {
+                canal.send(
+                  `📤 <@${userId}> não retornou à call da categoria monitorada em 2 minutos. ` +
+                  `Ponto fechado automaticamente às ${agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. ` +
+                  `Trabalhou ${horas}h ${minutos}m.`
+                );
+              }
+            } finally {
+              delete fechandoPonto[userId];
+            }
+          }
+        }
+        delete timersAusencia[userId];
+      }, 2 * 60 * 1000); // 2 minutos em ms
+    }
+  }
+
+  // Se usuário entrou numa call da categoria monitorada, cancela timer de ausência (se existir)
+  if (newState.channel?.parentId === CATEGORIA_MONITORADA) {
+    if (timersAusencia[userId]) {
+      clearTimeout(timersAusencia[userId]);
+      delete timersAusencia[userId];
+      console.log(`[DEBUG] Usuário ${userId} entrou na categoria monitorada, timer de ausência cancelado.`);
     }
   }
 });
+
 
 
 client.login(process.env.TOKEN);
