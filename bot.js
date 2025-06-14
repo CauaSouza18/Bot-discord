@@ -14,6 +14,8 @@ require('dotenv').config();
 
 const db = require('./db'); // módulo adaptado para PostgreSQL
 const { fecharPontoDoUsuario } = require('./db'); //  db.js
+const { excluirUsuario } = require('./db'); // ajuste o caminho se seu db.js estiver em outra pasta
+
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]
