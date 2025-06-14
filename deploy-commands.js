@@ -13,6 +13,16 @@ const commands = [
       .toJSON(),
 
   new SlashCommandBuilder()
+  .setName('excluir')
+  .setDescription('Exclui um usuário do sistema pelo ID')
+  .addStringOption(option =>
+    option.setName('userid')
+      .setDescription('ID do usuário a ser excluído')
+      .setRequired(true)
+  )
+  .toJSON(),
+
+  new SlashCommandBuilder()
       .setName('relatorio_geral')
       .setDescription('Mostra o relatório completo de todos os usuários')
       .toJSON(),
