@@ -136,7 +136,18 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 }
+if (interaction.commandName === 'excluir') {
+    const userId = interaction.options.getString('userid');
 
+    const sucesso = await excluirUsuario(userId);
+
+    if (sucesso) {
+      await interaction.reply(`✅ Usuário <@${userId}> excluído com sucesso.`);
+    } else {
+      await interaction.reply(`❌ Falha ao excluir o usuário <@${userId}>.`);
+    }
+  }
+}
     if (interaction.commandName === 'painel') {
       const embed = new EmbedBuilder()
         .setTitle('BATE-PONTO - ROTA')
