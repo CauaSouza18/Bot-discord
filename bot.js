@@ -72,105 +72,94 @@ client.on('interactionCreate', async (interaction) => {
   const canal = interaction.guild.channels.cache.get(CANAL_NOTIFICACOES_ID);
 
   if (interaction.isChatInputCommand()) {
-   if (interaction.commandName === 'relatorio_geral') {
-  try {
-    if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
-      return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
-    }
- await interaction.deferReply({ ephemeral: true });
+    if (interaction.commandName === 'relatorio_geral') {
+      try {
+        if (!membro.roles.cache.has(CARGO_RELATORIO_ID)) {
+          return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
+        }
 
-      const agora = new Date();
-      const hoje = agora.toISOString().slice(0, 10); // "2025-06-14"
+        await interaction.deferReply({ ephemeral: true });
 
-      const formatar = ms => {
-        const h = Math.floor(ms / 3600000);
-        const m = Math.floor((ms % 3600000) / 60000);
-        return `${h}h ${m}m`;
-      };
+        const agora = new Date();
+        const hoje = agora.toISOString().slice(0, 10); // "2025-06-14"
 
-      let relatorio = '';
+        const formatar = ms => {
+          const h = Math.floor(ms / 3600000);
+          const m = Math.floor((ms % 3600000) / 60000);
+          return `${h}h ${m}m`;
+        };
 
-      for (const uid in pontos) {
-        let nome;
-        try {
-          const membro = await interaction.guild.members.fetch(uid);
-          nome = membro.displayName;
-        } catch {
+        let relatorio = '';
+
+        for (const uid in pontos) {
+          let nome;
           try {
-            const user = await client.users.fetch(uid);
-            nome = user.username + ' (saiu)';
+            const membro = await interaction.guild.members.fetch(uid);
+            nome = membro.displayName;
           } catch {
-            nome = `ID: ${uid}`;
+            try {
+              const user = await client.users.fetch(uid);
+              nome = user.username + ' (saiu)';
+            } catch {
+              nome = `ID: ${uid}`;
+            }
           }
+
+          const registros = pontos[uid].registros || [];
+          let hojeMs = 0;
+          let totalMs = 0;
+
+          for (const r of registros) {
+            if (!r.entrada || !r.saida) continue;
+
+            const entrada = new Date(r.entrada);
+            const saida = new Date(r.saida);
+            const tempo = saida - entrada;
+            if (tempo <= 0) continue;
+
+            if (r.entrada.startsWith(hoje)) hojeMs += tempo;
+            totalMs += tempo;
+          }
+
+          relatorio += `👤 **${nome}**\nHoje: ${formatar(hojeMs)} | Total: ${formatar(totalMs)}\n\n`;
         }
 
-        const registros = pontos[uid].registros || [];
-        let hojeMs = 0;
-        let totalMs = 0;
+        if (!relatorio) relatorio = 'Nenhum dado disponível.';
 
-        for (const r of registros) {
-          if (!r.entrada || !r.saida) continue;
+        const embed = new EmbedBuilder()
+          .setTitle('📊 Relatório Geral de Todos os Usuários')
+          .setColor(0x2ecc71)
+          .setDescription(relatorio);
 
-          const entrada = new Date(r.entrada);
-          const saida = new Date(r.saida);
-          const tempo = saida - entrada;
-          if (tempo <= 0) continue;
+        await interaction.editReply({ embeds: [embed] });
 
-          if (r.entrada.startsWith(hoje)) hojeMs += tempo;
-          totalMs += tempo;
+      } catch (err) {
+        console.error('Erro no /relatorio_geral:', err);
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({ content: '❌ Ocorreu um erro ao gerar o relatório.' });
+        } else {
+          await interaction.reply({ content: '❌ Ocorreu um erro ao gerar o relatório.', ephemeral: true });
         }
-
-        relatorio += `👤 **${nome}**\nHoje: ${formatar(hojeMs)} | Total: ${formatar(totalMs)}\n\n`;
-      }
-
-      if (!relatorio) relatorio = 'Nenhum dado disponível.';
-
-      const embed = new EmbedBuilder()
-        .setTitle('📊 Relatório Geral de Todos os Usuários')
-        .setColor(0x2ecc71)
-        .setDescription(relatorio);
-
-      await interaction.editReply({ embeds: [embed] });
-
-    } catch (err) {
-      console.error('Erro no /relatorio_geral:', err);
-      if (interaction.deferred || interaction.replied) {
-        await interaction.editReply({ content: '❌ Ocorreu um erro ao gerar o relatório.' });
-      } else {
-        await interaction.reply({ content: '❌ Ocorreu um erro ao gerar o relatório.', ephemeral: true });
       }
     }
-  }
-});
-   
-const CARGOS_PERMITIDOS_EXCLUIR = [
-  '1372769455440134261',
-  '1372769455440134262',
-  '1372769455448526948',
-  '1372769455465168956'
-]; // IDs dos cargos que podem usar o comando
 
-const temPermissao = (membro, cargosPermitidos) => 
-  cargosPermitidos.some(cargoId => membro.roles.cache.has(cargoId));
+    if (interaction.commandName === 'excluir') {
+      if (!temPermissao(membro, CARGOS_PERMITIDOS_EXCLUIR)) {
+        return interaction.reply({
+          content: '❌ Você não tem permissão para usar este comando.',
+          ephemeral: true
+        });
+      }
 
-if (interaction.commandName === 'excluir') {
-  if (!temPermissao(membro, CARGOS_PERMITIDOS_EXCLUIR)) {
-    return interaction.reply({
-      content: '❌ Você não tem permissão para usar este comando.',
-      ephemeral: true
-    });
-  }
+      const userId = interaction.options.getString('userid');
+      const sucesso = await excluirUsuario(userId);
 
-  const userId = interaction.options.getString('userid');
-  const sucesso = await excluirUsuario(userId);
-
-  if (sucesso) {
-    await interaction.reply(`✅ Usuário <@${userId}> excluído com sucesso.`);
-  } else {
-    await interaction.reply(`❌ Falha ao excluir o usuário <@${userId}>.`);
-  }
-}
-
+      if (sucesso) {
+        await interaction.reply(`✅ Usuário <@${userId}> excluído com sucesso.`);
+      } else {
+        await interaction.reply(`❌ Falha ao excluir o usuário <@${userId}>.`);
+      }
+    }
 
     if (interaction.commandName === 'painel') {
       const embed = new EmbedBuilder()
@@ -190,48 +179,47 @@ if (interaction.commandName === 'excluir') {
       return interaction.reply({ embeds: [embed], components: [row], ephemeral: false });
     }
 
-if (interaction.commandName === 'ranking') {
-  try {
-    const ranking = Object.entries(pontos)
-      .filter(([_, d]) => d.acumuladoMs > 0)
-      .sort((a, b) => b[1].acumuladoMs - a[1].acumuladoMs);
-
-    if (!ranking.length) {
-      return interaction.reply({ content: 'Ninguém bateu ponto ainda.', ephemeral: true });
-    }
-
-    const embed = new EmbedBuilder()
-      .setTitle('🏆 Ranking de Horas Trabalhadas')
-      .setColor(0x00AE86);
-
-    const linhas = [];
-
-    for (let i = 0; i < Math.min(ranking.length, 10); i++) {
-      const [uid, data] = ranking[i];
-      let nome = `<@${uid}>`; // Fallback para caso não consiga buscar o nome
-
+    if (interaction.commandName === 'ranking') {
       try {
-        const user = await client.users.fetch(uid);
-        nome = user.tag; // Ex: Fulano#1234
-      } catch (e) {
-        console.warn(`Não foi possível buscar o usuário ${uid}:`, e.message);
+        const ranking = Object.entries(pontos)
+          .filter(([_, d]) => d.acumuladoMs > 0)
+          .sort((a, b) => b[1].acumuladoMs - a[1].acumuladoMs);
+
+        if (!ranking.length) {
+          return interaction.reply({ content: 'Ninguém bateu ponto ainda.', ephemeral: true });
+        }
+
+        const embed = new EmbedBuilder()
+          .setTitle('🏆 Ranking de Horas Trabalhadas')
+          .setColor(0x00AE86);
+
+        const linhas = [];
+
+        for (let i = 0; i < Math.min(ranking.length, 10); i++) {
+          const [uid, data] = ranking[i];
+          let nome = `<@${uid}>`;
+
+          try {
+            const user = await client.users.fetch(uid);
+            nome = user.tag;
+          } catch (e) {
+            console.warn(`Não foi possível buscar o usuário ${uid}:`, e.message);
+          }
+
+          const horas = Math.floor(data.acumuladoMs / 3600000);
+          const minutos = Math.floor((data.acumuladoMs % 3600000) / 60000);
+          linhas.push(`**${i + 1}.** ${nome}: ${horas}h ${minutos}m`);
+        }
+
+        embed.setDescription(linhas.join('\n'));
+        return interaction.reply({ embeds: [embed], ephemeral: true });
+
+      } catch (error) {
+        console.error('Erro ao gerar o ranking:', error);
+        return interaction.reply({ content: '❌ Ocorreu um erro ao gerar o ranking.', ephemeral: true });
       }
-
-      const horas = Math.floor(data.acumuladoMs / 3600000);
-      const minutos = Math.floor((data.acumuladoMs % 3600000) / 60000);
-      linhas.push(`**${i + 1}.** ${nome}: ${horas}h ${minutos}m`);
     }
-
-    embed.setDescription(linhas.join('\n'));
-
-    return interaction.reply({ embeds: [embed], ephemeral: true });
-
-  } catch (error) {
-    console.error('Erro ao gerar o ranking:', error);
-    return interaction.reply({ content: '❌ Ocorreu um erro ao gerar o ranking.', ephemeral: true });
   }
-}
-
 
   if (interaction.isButton()) {
     if (!membro.roles.cache.some(role => CARGOS_PERMITIDOS.includes(role.id))) {
