@@ -234,6 +234,7 @@ client.on('interactionCreate', async (interaction) => {
     if (!pontos[userId]) pontos[userId] = { entrada: null, acumuladoMs: 0, registros: [] };
 
     if (interaction.customId === 'entrada') {
+      
       const voiceChannel = membro.voice.channel;
       if (!voiceChannel || voiceChannel.parentId !== CATEGORIA_MONITORADA) {
         return interaction.reply({ content: '❌ Entre em uma call da categoria permitida!', ephemeral: true });
@@ -258,9 +259,13 @@ client.on('interactionCreate', async (interaction) => {
       const agora = new Date();
       const entradaDate = new Date(pontos[userId].entrada);
       const tempo = agora - entradaDate;
-
       pontos[userId].acumuladoMs += tempo;
-      pontos[userId].registros.push({ entrada: pontos[userId].entrada, saida: agora.toISOString() });
+     if (!pontos[userId].registros) pontos[userId].registros = [];
+    pontos[userId].registros.push({
+     entrada: pontos[userId].entrada,
+     saida: agora.toISOString()
+});
+
       pontos[userId].entrada = null;
 
       await salvarDados(userId, 'saida');
