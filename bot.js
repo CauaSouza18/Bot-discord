@@ -23,9 +23,14 @@ const client = new Client({
 
 // Configurações
 const CARGOS_PERMITIDOS = ['1372769455406579730'];
+const CARGOS_PERMITIDOS_EXCLUIR = ['1372769455448526948', '1372769455440134262', '1372769455440134261' ]; // Coloque os cargos que podem excluir aqui
 const CARGO_RELATORIO_ID = '1372769455393734656'; // Cargo que pode ver relatorio geral
 const CANAL_NOTIFICACOES_ID = '1372769457201610783';
 const CATEGORIA_MONITORADA = '1372769457621172314';
+function temPermissao(membro, cargosPermitidos) {
+  return membro.roles.cache.some(role => cargosPermitidos.includes(role.id));
+}
+
 
 // Comandos
 const commands = [
